@@ -65,10 +65,16 @@ export function useFortuneData() {
 
   useEffect(() => {
     // ✅ 已有 cache，直接用
-    if (homeFortuneCache) return
+    if (homeFortuneCache) {
+      setLoading(false)
+      return
+    }
 
     // ✅ 防止重複請求
-    if (homeFortunePending) return
+    if (homeFortunePending) {
+      setLoading(false)
+      return
+    }
     homeFortunePending = true
 
     const { start, end } = getRange()

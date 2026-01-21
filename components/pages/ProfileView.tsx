@@ -10,6 +10,7 @@ export const profilePending: Record<string, boolean> = {}
 /* =========================
    對照表
 ========================= */
+type WuxingKey = "木" | "火" | "土" | "金" | "水"
 
 const STEM_WUXING: Record<string, string> = {
   甲: "木", 乙: "木",
@@ -17,6 +18,14 @@ const STEM_WUXING: Record<string, string> = {
   戊: "土", 己: "土",
   庚: "金", 辛: "金",
   壬: "水", 癸: "水",
+}
+
+const WUXING_COLOR: Record<WuxingKey, string> = {
+  木: "bg-green-400",
+  火: "bg-red-400",
+  土: "bg-yellow-400",
+  金: "bg-gray-300",
+  水: "bg-blue-400",
 }
 
 /* =========================
@@ -108,6 +117,20 @@ export default function ProfilePage() {
 
   const ENABLE_PROFILE_EDIT = false
 
+  const wuxing = useMemo(() => {
+    try {
+      if (!profile?.wuxing) return null
+      return typeof profile.wuxing === "string"
+        ? JSON.parse(profile.wuxing)
+        : profile.wuxing
+    } catch {
+      return null
+    }
+  }, [profile])
+
+  const maxWuxing = wuxing
+    ? Math.max(...Object.values(wuxing).map(Number))
+    : 1
   /* =========================
      Render Gate（只能在 Hooks 後）
   ========================= */
@@ -245,6 +268,20 @@ export default function ProfilePage() {
         <h3 className="font-semibold mb-2">🧭 命盤總覽</h3>
         <Row label="日主" value={`${dayMaster}（${dayMasterWuxing}）`} />
         <Row label="身強弱" value={profile.dayMasterStrength.result} />
+
+        {wuxing && (
+          <div className="mt-3 space-y-2">
+            {Object.entries(wuxing).map(([k, v]) => (
+              <Bar
+                key={k}
+                label={`五行｜${k}`}
+                value={Number(v)}
+                max={maxWuxing}
+                color={WUXING_COLOR[k as WuxingKey]}
+              />
+            ))}
+          </div>
+        )}
       </SectionCard>
 
       {/* ================= 十神分佈 ================= */}
@@ -321,7 +358,7 @@ function Row({ label, value }: { label: string; value: string }) {
   )
 }
 
-function Bar({ label, value, max }: any) {
+function Bar({ label, value, max, color = "bg-emerald-400" }: any) {
   return (
     <div className="mb-2">
       <div className="flex justify-between text-xs mb-1">
@@ -330,7 +367,7 @@ function Bar({ label, value, max }: any) {
       </div>
       <div className="h-2 bg-white/10 rounded">
         <div
-          className="h-full bg-emerald-400"
+          className={`h-full rounded ${color}`}
           style={{ width: `${(value / max) * 100}%` }}
         />
       </div>

@@ -26,6 +26,22 @@ export default function HomePage() {
 
   const { data, isLoading } = useFortuneData()
 
+  if (isLoading) {
+    return (
+      <main className="min-h-screen bg-black text-white flex items-center justify-center">
+        Loading...
+      </main>
+    )
+  }
+
+  if (!data?.today) {
+    return (
+      <main className="min-h-screen bg-black text-white flex items-center justify-center">
+        No data
+      </main>
+    )
+  }
+  
   const todayFortune: TodayFortune | null = data
     ? {
         date: data.today.date,
