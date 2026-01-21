@@ -55,16 +55,26 @@ function getRange() {
 /* =========================
    Hook
 ========================= */
+let homeFortuneCache: any = null
+let homeFortunePending = false
 
 export function useFortuneData() {
-  const [data, setData] = useState<any>(null)
-  const [isLoading, setLoading] = useState(true)
+  const [data, setData] = useState<any>(() => homeFortuneCache)
+  const [isLoading, setLoading] = useState(!homeFortuneCache)
   const [error, setError] = useState<Error | null>(null)
-  
+
   useEffect(() => {
+    // ✅ 已有 cache，直接用
+    if (homeFortuneCache) return
+
+    // ✅ 防止重複請求
+    if (homeFortunePending) return
+    homeFortunePending = true
+
     const { start, end } = getRange()
     const path =
       `https://www.highlight.url.tw/ai_fortune/php/sync_date.php?start=${start}&end=${end}`
+
     fetch(path)
       .then((r) => r.json())
       .then((json: ApiResponse) => {
@@ -92,7 +102,7 @@ export function useFortuneData() {
           })
         })
 
-        setData({
+        const result = {
           today: {
             date: today.date,
             ganzhi: `${today.ganzhi.year}｜${today.ganzhi.day}`,
@@ -105,10 +115,17 @@ export function useFortuneData() {
             })),
             trend7ByWuxing,
           },
-        })
+        }
+
+        // ✅ 存 cache
+        homeFortuneCache = result
+        setData(result)
       })
       .catch(setError)
-      .finally(() => setLoading(false))
+      .finally(() => {
+        homeFortunePending = false
+        setLoading(false)
+      })
   }, [])
 
   return { data, isLoading, error }

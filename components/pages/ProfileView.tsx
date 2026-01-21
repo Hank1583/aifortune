@@ -1,253 +1,353 @@
 "use client"
 
-import React, { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
+import { useAuth } from "@/contexts/AuthContext"
+import { getProfile, ProfileData } from "@/components/data/profile"
+
+export const profileCache: Record<string, ProfileData> = {}
+export const profilePending: Record<string, boolean> = {}
 
 /* =========================
-   Types
+   對照表
 ========================= */
 
-type Pillar = {
-  stem: string
-  branch: string
-}
-
-type BaZi = {
-  year: Pillar
-  month: Pillar
-  day: Pillar
-  hour: Pillar
-}
-
-type WuxingKey = "木" | "火" | "土" | "金" | "水"
-
-/* =========================
-   Constants
-========================= */
-
-const STEMS = ["甲","乙","丙","丁","戊","己","庚","辛","壬","癸"]
-const BRANCHES = ["子","丑","寅","卯","辰","巳","午","未","申","酉","戌","亥"]
-
-const STEM_WUXING: Record<string, WuxingKey> = {
-  甲:"木", 乙:"木",
-  丙:"火", 丁:"火",
-  戊:"土", 己:"土",
-  庚:"金", 辛:"金",
-  壬:"水", 癸:"水",
+const STEM_WUXING: Record<string, string> = {
+  甲: "木", 乙: "木",
+  丙: "火", 丁: "火",
+  戊: "土", 己: "土",
+  庚: "金", 辛: "金",
+  壬: "水", 癸: "水",
 }
 
 /* =========================
-   Helpers（簡化版示意）
-   ⚠️ 之後可換成後端精算
+   主頁
 ========================= */
-
-// ⚠️ 簡化算法：穩定可展示（不是命理最嚴謹）
-function calcBaZi(date: Date): BaZi {
-  const y = date.getFullYear()
-  const m = date.getMonth()
-  const d = date.getDate()
-  const h = date.getHours()
-
-  return {
-    year: {
-      stem: STEMS[(y - 4) % 10],
-      branch: BRANCHES[(y - 4) % 12],
-    },
-    month: {
-      stem: STEMS[(m + 2) % 10],
-      branch: BRANCHES[(m + 2) % 12],
-    },
-    day: {
-      stem: STEMS[(d + 5) % 10],
-      branch: BRANCHES[(d + 5) % 12],
-    },
-    hour: {
-      stem: STEMS[Math.floor(h / 2) % 10],
-      branch: BRANCHES[Math.floor(h / 2) % 12],
-    },
-  }
-}
-
-function calcWuxing(bazi: BaZi) {
-  const count: Record<WuxingKey, number> = {
-    木:0, 火:0, 土:0, 金:0, 水:0,
-  }
-
-  Object.values(bazi).forEach((p) => {
-    const w = STEM_WUXING[p.stem]
-    count[w] += 1
+export default function ProfilePage() {
+  const { member, loading: authLoading } = useAuth()
+  const [profile, setProfile] = useState<ProfileData | null>(null)
+  const [birthDate, setBirthDate] = useState("")
+  const [birthTime, setBirthTime] = useState("")
+  const [loading, setLoading] = useState(true)
+  const [gender, setGender] = useState<"男" | "女">("男")
+  const [isEditing, setIsEditing] = useState(false)
+  
+  const [schedule, setSchedule] = useState({
+    daily: false,
+    monthly: false,
   })
 
-  const sorted = Object.entries(count).sort((a,b)=>b[1]-a[1])
-  return {
-    count,
-    main: sorted[0][0] as WuxingKey,
+  const [notify, setNotify] = useState({
+    overall: false,
+    wealth: false,
+    career: false,
+    invest: false,
+    social: false,
+    lottery: false,
+  })
+
+  const [isSettingOpen, setIsSettingOpen] = useState(false)
+  const [isTenGodOpen, setIsTenGodOpen] = useState(false)
+
+  useEffect(() => {
+    if (authLoading) return
+
+    const uid = member
+      ? String(member.member_id)
+      : "guest"
+
+    // ✅ cache 命中
+    if (profileCache[uid]) {
+      const p = profileCache[uid]
+      setProfile(p)
+      
+      setBirthDate(p.birth.date)
+      setBirthTime(p.birth.time)
+      setGender(p.birth.gender)
+      setSchedule(p.schedule)
+      setNotify(p.notify)
+      setLoading(false)
+      return
+    }
+
+    // ✅ 防止重複請求
+    if (profilePending[uid]) return
+    profilePending[uid] = true
+
+    setLoading(true)
+
+    getProfile(uid)
+      .then(res => {
+        profileCache[uid] = res
+        setProfile(res)
+
+        setBirthDate(res.birth.date)
+        setBirthTime(res.birth.time)
+        setGender(res.birth.gender)
+        setSchedule(res.schedule)
+        setNotify(res.notify)
+      })
+      .finally(() => {
+        delete profilePending[uid]
+        setLoading(false)
+      })
+  }, [authLoading, member?.member_id])
+
+  /* =========================
+     Memo
+  ========================= */
+
+  const tenGodList = useMemo(() => {
+    if (!profile) return []
+    return Object.entries(profile.tenGod).sort((a, b) => b[1] - a[1])
+  }, [profile])
+
+  const maxTenGod = tenGodList.length ? tenGodList[0][1] : 0
+
+  const dayMaster = profile?.dayMasterStrength.day_master ?? ""
+  const dayMasterWuxing = dayMaster ? STEM_WUXING[dayMaster] : ""
+
+  const ENABLE_PROFILE_EDIT = false
+
+  /* =========================
+     Render Gate（只能在 Hooks 後）
+  ========================= */
+
+  if (authLoading || !profile) {
+    return <div>載入中...</div>
   }
-}
 
-/* =========================
-   UI
-========================= */
-
-export default function ProfilePage() {
-  const [birthDate, setBirthDate] = useState("1993-08-10")
-  const [birthTime, setBirthTime] = useState("09:30")
-
-  const [notifyDaily, setNotifyDaily] = useState(true)
-  const [notifyInvest, setNotifyInvest] = useState(true)
-  const [notifyLottery, setNotifyLottery] = useState(false)
-
-  const dateObj = useMemo(() => {
-    return new Date(`${birthDate}T${birthTime}:00`)
-  }, [birthDate, birthTime])
-
-  const bazi = useMemo(() => calcBaZi(dateObj), [dateObj])
-  const wuxing = useMemo(() => calcWuxing(bazi), [bazi])
+  /* =========================
+     正式 Render
+  ========================= */
 
   return (
     <div className="px-4 py-4 text-white space-y-4">
-      {/* ===== 基本資料 ===== */}
+
+      {/* ================= 基本資料 / 通知 ================= */}
       <SectionCard>
-        <h2 className="text-lg font-semibold mb-3">👤 個人資料</h2>
-
-        <div className="grid grid-cols-2 gap-3">
-          <Input
-            label="出生日期"
-            type="date"
-            value={birthDate}
-            onChange={setBirthDate}
-          />
-          <Input
-            label="出生時間"
-            type="time"
-            value={birthTime}
-            onChange={setBirthTime}
-          />
-        </div>
-      </SectionCard>
-
-      {/* ===== 天干地支 ===== */}
-      <SectionCard>
-        <h3 className="text-base font-semibold mb-2">🧭 天干地支</h3>
-
-        <PillarRow label="年柱" pillar={bazi.year} />
-        <PillarRow label="月柱" pillar={bazi.month} />
-        <PillarRow label="日柱" pillar={bazi.day} />
-        <PillarRow label="時柱" pillar={bazi.hour} />
-      </SectionCard>
-
-      {/* ===== 五行 ===== */}
-      <SectionCard>
-        <h3 className="text-base font-semibold mb-2">🌿 五行分析</h3>
-
-        <div className="grid grid-cols-5 gap-2 text-center text-sm">
-          {Object.entries(wuxing.count).map(([k,v])=>(
-            <div key={k} className="rounded-lg bg-white/5 py-2">
-              <div>{k}</div>
-              <div className="text-white/70">{v}</div>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-3 text-sm text-white/80">
-          主五行：
-          <span className="ml-2 text-emerald-300 font-medium">
-            {wuxing.main}
+        <div
+          className="flex justify-between items-center mb-3 cursor-pointer"
+          onClick={() => {
+            if (isEditing) return
+            setIsSettingOpen(!isSettingOpen)
+          }}
+        >
+          <h2 className="text-lg font-semibold">👤 個人設定</h2>
+          <span className="text-xs text-white/50">
+            {isSettingOpen ? "收合" : "展開"}
           </span>
         </div>
+
+        {isSettingOpen && (
+          <>
+            {/* 基本資料 */}
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <Input
+                label="出生日期"
+                type="date"
+                value={birthDate}
+                onChange={setBirthDate}
+                disabled={!isEditing}
+              />
+              <Input
+                label="出生時間"
+                type="time"
+                value={birthTime}
+                onChange={setBirthTime}
+                disabled={!isEditing}
+              />
+              <Select
+                label="性別"
+                value={gender}
+                onChange={setGender}
+                disabled={!isEditing}
+                options={["男", "女"]}
+              />
+            </div>
+
+            {/* ---------- 通知設定 ---------- */}
+            <div className="space-y-6">
+
+              {/* 時間區段 */}
+              <div>
+                <h3 className="mb-3 text-base font-semibold text-yellow-500">
+                  時間區段
+                </h3>
+                <div className="flex gap-4">
+                  <Toggle
+                    label="每日運勢"
+                    checked={schedule.daily}
+                    onChange={(v: boolean) => setSchedule({ ...schedule, daily: v })}
+                    disabled={!isEditing}
+                  />
+                  <Toggle
+                    label="每月運勢"
+                    checked={schedule.monthly}
+                    onChange={(v: boolean) => setSchedule({ ...schedule, monthly: v })}
+                    disabled={!isEditing}
+                  />
+                </div>
+              </div>
+
+              {/* 運勢類型 */}
+              <div>
+                <h3 className="mb-3 text-base font-semibold text-yellow-500">
+                  運勢類型
+                </h3>
+                <div className="space-y-2">
+                  <Toggle
+                    label="整體運勢"
+                    checked={notify.overall}
+                    onChange={(v: boolean) => setNotify({ ...notify, overall: v })}
+                    disabled={!isEditing}
+                  />
+                  <Toggle
+                    label="財運"
+                    checked={notify.wealth}
+                    onChange={(v: boolean) => setNotify({ ...notify, wealth: v })}
+                    disabled={!isEditing}
+                  />
+                  <Toggle
+                    label="工作運"
+                    checked={notify.career}
+                    onChange={(v: boolean) => setNotify({ ...notify, career: v })}
+                    disabled={!isEditing}
+                  />
+                  <Toggle
+                    label="投資運"
+                    checked={notify.invest}
+                    onChange={(v: boolean) => setNotify({ ...notify, invest: v })}
+                    disabled={!isEditing}
+                  />
+                  <Toggle
+                    label="人際運"
+                    checked={notify.social}
+                    onChange={(v: boolean) => setNotify({ ...notify, social: v })}
+                    disabled={!isEditing}
+                  />
+                  <Toggle
+                    label="彩券運"
+                    checked={notify.lottery}
+                    onChange={(v: boolean) => setNotify({ ...notify, lottery: v })}
+                    disabled={!isEditing}
+                  />
+                </div>
+              </div>
+
+            </div>
+          </>
+        )}
+
       </SectionCard>
 
-      {/* ===== LINE 通知 ===== */}
+      {/* ================= 命盤總覽 ================= */}
       <SectionCard>
-        <h3 className="text-base font-semibold mb-2">🔔 LINE 通知設定</h3>
+        <h3 className="font-semibold mb-2">🧭 命盤總覽</h3>
+        <Row label="日主" value={`${dayMaster}（${dayMasterWuxing}）`} />
+        <Row label="身強弱" value={profile.dayMasterStrength.result} />
+      </SectionCard>
 
-        <Toggle
-          label="每日運勢通知"
-          checked={notifyDaily}
-          onChange={setNotifyDaily}
-        />
-        <Toggle
-          label="投資高分日提醒"
-          checked={notifyInvest}
-          onChange={setNotifyInvest}
-        />
-        <Toggle
-          label="彩券高分日提醒"
-          checked={notifyLottery}
-          onChange={setNotifyLottery}
-        />
+      {/* ================= 十神分佈 ================= */}
+      <SectionCard>
+        <div
+          className="flex items-center justify-between mb-3 cursor-pointer"
+          onClick={() => setIsTenGodOpen(!isTenGodOpen)}
+        >
+          <h3 className="font-semibold">📊 十神分佈</h3>
+          <span className="text-xs text-white/50">
+            {isTenGodOpen ? "收合" : "展開"}
+          </span>
+        </div>
+
+        {isTenGodOpen && (
+          <div className="space-y-2">
+            {tenGodList.map(([k, v]) => (
+              <Bar key={k} label={k} value={v} max={maxTenGod || 1} />
+            ))}
+          </div>
+        )}
       </SectionCard>
     </div>
   )
 }
 
 /* =========================
-   Small UI Parts
+   UI 元件
 ========================= */
 
 function SectionCard({ children }: { children: React.ReactNode }) {
   return <div className="rounded-2xl bg-white/5 px-4 py-4">{children}</div>
 }
 
-function Input({
-  label,
-  type,
-  value,
-  onChange,
-}: {
-  label: string
-  type: string
-  value: string
-  onChange: (v: string) => void
-}) {
+function Input({ label, value, onChange, disabled, type }: any) {
   return (
     <label className="text-sm">
       <div className="text-white/60 mb-1">{label}</div>
       <input
         type={type}
         value={value}
-        onChange={(e)=>onChange(e.target.value)}
-        className="w-full rounded-lg bg-white/10 px-3 py-2 text-white outline-none"
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-lg bg-white/10 px-3 py-2 text-white disabled:bg-white/5"
       />
     </label>
   )
 }
 
-function PillarRow({ label, pillar }: { label: string; pillar: Pillar }) {
+function Select({ label, options, value, onChange, disabled }: any) {
   return (
-    <div className="flex justify-between py-1 text-sm">
-      <div className="text-white/60">{label}</div>
-      <div className="font-medium">
-        {pillar.stem}{pillar.branch}
+    <label className="text-sm">
+      <div className="text-white/60 mb-1">{label}</div>
+      <select
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-lg bg-white/10 px-3 py-2 text-white disabled:bg-white/5"
+      >
+        {options.map((o: string) => (
+          <option key={o}>{o}</option>
+        ))}
+      </select>
+    </label>
+  )
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between text-sm">
+      <span className="text-white/60">{label}</span>
+      <span>{value}</span>
+    </div>
+  )
+}
+
+function Bar({ label, value, max }: any) {
+  return (
+    <div className="mb-2">
+      <div className="flex justify-between text-xs mb-1">
+        <span>{label}</span>
+        <span>{value}</span>
+      </div>
+      <div className="h-2 bg-white/10 rounded">
+        <div
+          className="h-full bg-emerald-400"
+          style={{ width: `${(value / max) * 100}%` }}
+        />
       </div>
     </div>
   )
 }
 
-function Toggle({
-  label,
-  checked,
-  onChange,
-}: {
-  label: string
-  checked: boolean
-  onChange: (v: boolean) => void
-}) {
+function Toggle({ label, checked, onChange, disabled }: any) {
   return (
     <button
-      onClick={()=>onChange(!checked)}
-      className="flex items-center justify-between w-full py-2"
+      disabled={disabled}
+      onClick={() => !disabled && onChange(!checked)}
+      className="flex justify-between w-full text-sm disabled:opacity-40"
     >
-      <span className="text-sm text-white/80">{label}</span>
-      <span
-        className={`w-10 h-6 rounded-full transition ${
-          checked ? "bg-emerald-400" : "bg-white/20"
-        }`}
-      >
-        <span
-          className={`block w-5 h-5 bg-black rounded-full mt-0.5 transition ${
-            checked ? "ml-5" : "ml-0.5"
-          }`}
-        />
+      <span>{label}</span>
+      <span className={`w-10 h-6 rounded-full ${checked ? "bg-emerald-400" : "bg-white/20"}`}>
+        <span className={`block w-5 h-5 bg-black rounded-full mt-0.5 ${checked ? "ml-5" : "ml-0.5"}`} />
       </span>
     </button>
   )

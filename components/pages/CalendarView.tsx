@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useMemo, useState } from "react"
+import React, { useEffect, useMemo, useState, useRef } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import {
   fetchMonthFortune,
@@ -9,6 +9,10 @@ import {
   type DailyFortune,
 } from "@/components/data/CalendarView"
 
+export const monthCache: Record<string, {
+  monthFortune: MonthFortune
+  monthData: Record<string, DailyFortune>
+}> = {}
 /* =========================
    日期工具
 ========================= */
@@ -27,7 +31,6 @@ const isSameDay = (a: Date, b: Date) =>
   a.getFullYear() === b.getFullYear() &&
   a.getMonth() === b.getMonth() &&
   a.getDate() === b.getDate()
-
 /* =========================
    UI helpers
 ========================= */
@@ -124,14 +127,19 @@ export default function CalendarView() {
   const year = cursorMonth.getFullYear()
   const month = cursorMonth.getMonth()
   const ym = `${year}-${pad2(month + 1)}`
-
   /* ===== 抓 API ===== */
   useEffect(() => {
     if (authLoading) return
+    // ✅ 有快取就直接用
+    if (monthCache[ym]) {
+      const cached = monthCache[ym]
+      setMonthFortune(cached.monthFortune)
+      setMonthData(cached.monthData)
+      return
+    }
 
+    // ❌ 沒快取才打 API
     setLoading(true)
-    setError(null)
-
     Promise.all([
       fetchMonthFortune(uid, ym),
       fetchDailyForMonth(uid, ym),
@@ -139,6 +147,12 @@ export default function CalendarView() {
       .then(([m, d]) => {
         setMonthFortune(m)
         setMonthData(d)
+
+        // ✅ 存快取
+        monthCache[ym] = {
+          monthFortune: m,
+          monthData: d,
+        }
       })
       .catch(() => setError("資料載入失敗"))
       .finally(() => setLoading(false))
@@ -182,7 +196,7 @@ export default function CalendarView() {
   }
 
   /* ===== Render ===== */
-  if (loading) {
+  if (!monthFortune) {
     return <div className="px-4 py-6 text-white">載入中…</div>
   }
 
@@ -248,9 +262,9 @@ export default function CalendarView() {
               <button
                 key={i}
                 onClick={() => onSelectDate(c.iso)}
-                className="h-12 rounded-xl bg-white/5 px-2 py-1 text-left"
+                className="min-h-[56px] rounded-xl bg-white/5 px-2 py-1.5 text-left flex flex-col justify-between"
               >
-                <div className="flex justify-between">
+                <div className="flex items-center justify-between">
                   <div className={isSameDay(c.date, today) ? "font-semibold" : ""}>
                     {c.date.getDate()}
                   </div>
@@ -260,7 +274,7 @@ export default function CalendarView() {
                     )}`}
                   />
                 </div>
-                <div className="text-[10px] text-white/40">
+                <div className="text-[10px] leading-tight text-white/40">
                   整體 {monthData[c.iso].scores.overall}
                 </div>
               </button>

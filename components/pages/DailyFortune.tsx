@@ -3,6 +3,9 @@ import { fetchDailyFortune } from "@/components/data/DailyFortune"
 import type { FortuneResponse } from "@/components/data/DailyFortune"
 import { useAuth } from "@/contexts/AuthContext"
 
+export const dailyCache: Record<string, FortuneResponse> = {}
+export const dailyPending: Record<string, boolean> = {}
+
 /* ===== 工具：今天日期 ===== */
 function formatDateYMD(date: Date): string {
   const y = date.getFullYear()
@@ -21,15 +24,33 @@ export default function DailyFortune() {
   useEffect(() => {
     if (authLoading) return
 
-    setLoading(true)
-
     const uid = member
       ? String(member.member_id)
       : "guest"
 
+    const cacheKey = `${uid}|${date}`
+
+    if (dailyCache[cacheKey]) {
+      setData(dailyCache[cacheKey])
+      setLoading(false)
+      return
+    }
+
+    // ✅ 防止重複請求
+    if (dailyPending[cacheKey]) return
+    dailyPending[cacheKey] = true
+
+    setLoading(true)
+
     fetchDailyFortune(uid, date)
-      .then(setData)
-      .finally(() => setLoading(false))
+      .then(res => {
+        dailyCache[cacheKey] = res
+        setData(res)
+      })
+      .finally(() => {
+        delete dailyPending[cacheKey]
+        setLoading(false)
+      })
   }, [authLoading, member, date])
 
   if (loading) return <div>運勢計算中...</div>
