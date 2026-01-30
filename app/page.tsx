@@ -52,7 +52,7 @@ export default function HomePage() {
     : null
 
   return (
-    <main className="relative min-h-screen bg-black text-white">
+    <main className="home-root">
       {/* ===== 宇宙主視覺（只在資料 ready 時顯示） ===== */}
       {!isLoading && todayFortune && (
         <CosmicSphere todayFortune={todayFortune} />

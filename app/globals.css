@@ -16,15 +16,28 @@ body {
   height: 100%;
 }
 
+#__next {
+  height: 100%;
+}
+
+.home-root {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.content-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
 #app-root {
   width: 100vw;
   height: 100dvh;
 
-  /* iPhone Safe Area */
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
-  padding-left: env(safe-area-inset-left);
-  padding-right: env(safe-area-inset-right);
 }
 
 @theme inline {
