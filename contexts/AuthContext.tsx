@@ -73,7 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           atob(idToken.split(".")[1])
         )
         const lineId = payload.sub
-        // const lineId = "U06e1d5253a127b6f4ab5c3227f826b00"
+        // const lineId = "U07fd76a4221d13488c687d995ed3a499"
 
         /** 3️⃣ 呼叫你的會員 API */
         const formData = new FormData()
