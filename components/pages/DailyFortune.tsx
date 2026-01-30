@@ -151,36 +151,19 @@ function Section({
 
 /* ===== 工具：從後端 text 擷取段落 ===== */
 
-function extractBlock(text: string, title: string): string {
-  // 1️⃣ 用 title 找到該段落開始
+function extractBlock(text: string | null | undefined, title: string): string {
+  if (!text) return ""
+
   const startIndex = text.indexOf(title)
   if (startIndex === -1) return ""
 
-  // 2️⃣ 從該段落開始切
-  const sliced = text.slice(startIndex)
+  const rest = text.slice(startIndex + title.length)
+  const nextTitleIndex = rest.indexOf("【")
 
-  // 3️⃣ 用換行切行
-  const lines = sliced.split("\n")
-
-  // 4️⃣ 丟掉第一行（含分數的標題行）
-  const contentLines: string[] = []
-
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i].trim()
-
-    // 碰到下一個段落標題就停（emoji + 空白）
-    if (/^[🌟💰💼📈🤝🎯]/.test(line)) {
-      break
-    }
-
-    if (line !== "") {
-      contentLines.push(line)
-    }
-  }
-
-  return contentLines.join("\n").trim()
+  return nextTitleIndex !== -1
+    ? rest.slice(0, nextTitleIndex).trim()
+    : rest.trim()
 }
-
 
 function getScoreColor(score: number): string {
   if (score >= 8) return "text-green-400"

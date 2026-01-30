@@ -202,7 +202,6 @@ function SevenDayBar({
         <div className="text-sm font-medium">
           📊 {wuxing}・近 7 日能量
         </div>
-        <div className="text-xs text-white/50">0 – 5</div>
       </div>
 
       {/* Chart */}
@@ -222,7 +221,7 @@ function SevenDayBar({
         {/* BAR */}
         <div className="absolute inset-0 ml-6 flex items-end gap-2 z-10">
           {series.map((v, i) => {
-            const isToday = i === series.length - 1
+            const isToday = i === 0
             const barHeight =
               v === 0 ? 3 : (v / MAX) * CHART_HEIGHT
 
@@ -256,7 +255,7 @@ function SevenDayBar({
 
                 {/* day */}
                 <div className="text-[10px] text-white/40">
-                  {isToday ? "今" : `-${series.length - 1 - i}`}
+                  {isToday ? "今" : `+${i}`}
                 </div>
               </div>
             )
@@ -268,7 +267,7 @@ function SevenDayBar({
       <div className="mt-3 text-xs text-white/50">
         今日 {wuxing} 能量為{" "}
         <span className="text-white font-medium">
-          {series.at(-1)}
+          {series[0]}
         </span>{" "}
         / 5
       </div>

@@ -57,23 +57,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return
         }
 
-        // const liff = await initLiff()
+        const liff = await initLiff()
 
-        // if (!isLoggedIn()) {
-        //   liff.login()
-        //   return
-        // }
+        if (!isLoggedIn()) {
+          liff.login()
+          return
+        }
 
-        // /** 1️⃣ 取得 LINE ID Token */
-        // const idToken = getIdToken()
-        // if (!idToken) throw new Error("No LINE ID Token")
+        /** 1️⃣ 取得 LINE ID Token */
+        const idToken = getIdToken()
+        if (!idToken) throw new Error("No LINE ID Token")
 
-        // /** 2️⃣ decode JWT 取 sub（前端可用、後端也會再驗） */
-        // const payload = JSON.parse(
-        //   atob(idToken.split(".")[1])
-        // )
-        // const lineId = payload.sub
-        const lineId = "U06e1d5253a127b6f4ab5c3227f826b00"
+        /** 2️⃣ decode JWT 取 sub（前端可用、後端也會再驗） */
+        const payload = JSON.parse(
+          atob(idToken.split(".")[1])
+        )
+        const lineId = payload.sub
+        // const lineId = "U07fd76a4221d13488c687d995ed3a499"
 
         /** 3️⃣ 呼叫你的會員 API */
         const formData = new FormData()

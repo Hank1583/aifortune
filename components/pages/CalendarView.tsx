@@ -214,7 +214,7 @@ export default function CalendarView() {
           subtitle={`月令：${monthFortune.monthType}`}
           defaultOpen
         >
-          <div className="grid grid-cols-2 gap-2 text-sm">
+          <div className="grid grid-cols-7 gap-1">
             <div>整體：{monthFortune.scores.overall}</div>
             <div>財運：{monthFortune.scores.wealth}</div>
             <div>工作：{monthFortune.scores.work}</div>
@@ -262,7 +262,7 @@ export default function CalendarView() {
               <button
                 key={i}
                 onClick={() => onSelectDate(c.iso)}
-                className="min-h-[56px] rounded-xl bg-white/5 px-2 py-1.5 text-left flex flex-col justify-between"
+                className=" aspect-square rounded-xl bg-white/5 p-1.5 text-left flex flex-col "
               >
                 <div className="flex items-center justify-between">
                   <div className={isSameDay(c.date, today) ? "font-semibold" : ""}>
@@ -275,7 +275,7 @@ export default function CalendarView() {
                   />
                 </div>
                 <div className="text-[10px] leading-tight text-white/40">
-                  整體 {monthData[c.iso].scores.overall}
+                  {monthData[c.iso].scores.overall}
                 </div>
               </button>
             ) : (

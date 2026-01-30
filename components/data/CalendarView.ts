@@ -52,7 +52,7 @@ export function adaptMonthFortune(api: any): MonthFortune {
       investment: api.scores["投資"],
       social: api.scores["人際"],
     },
-    summary: "本月運勢由系統計算（API）", // 之後可換 AI
+    summary: "本月運勢由系統計算", // 之後可換 AI
   }
 }
 
