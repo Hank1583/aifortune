@@ -80,32 +80,32 @@ export default function DailyFortune() {
       {/* ② 整體運勢文字 */}
       <Section title="整體運勢說明">
         <p className="text-sm text-white/80 leading-relaxed">
-          {extractBlock(data.text, "🌟 整體運勢")}
+          {extractBlock(data.text, "overall")}
         </p>
       </Section>
 
       {/* ③ 各分項說明 */}
       <Section title="財運">
         <p className="text-sm text-white/80 leading-relaxed">
-          {extractBlock(data.text, "💰 財運")}
+          {extractBlock(data.text, "wealth")}
         </p>
       </Section>
 
       <Section title="工作運">
         <p className="text-sm text-white/80 leading-relaxed">
-          {extractBlock(data.text, "💼 工作運")}
+          {extractBlock(data.text, "career")}
         </p>
       </Section>
 
       <Section title="投資建議">
         <p className="text-sm text-white/80 leading-relaxed">
-          {extractBlock(data.text, "📈 投資建議")}
+          {extractBlock(data.text, "invest")}
         </p>
       </Section>
 
       <Section title="人際互動">
         <p className="text-sm text-white/80 leading-relaxed">
-          {extractBlock(data.text, "🤝 人際互動")}
+          {extractBlock(data.text, "relation")}
         </p>
       </Section>
     </div>
@@ -113,15 +113,6 @@ export default function DailyFortune() {
 }
 
 /* ===== 小元件 ===== */
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between text-sm">
-      <span className="text-white/70">{label}</span>
-      <span className="font-semibold">{value}</span>
-    </div>
-  )
-}
 
 function Section({
   title,
@@ -151,18 +142,37 @@ function Section({
 
 /* ===== 工具：從後端 text 擷取段落 ===== */
 
-function extractBlock(text: string | null | undefined, title: string): string {
-  if (!text) return ""
+function extractBlock(
+  text?: string | null,
+  key?: 'overall' | 'wealth' | 'career' | 'invest' | 'relation' | 'remind'
+): string {
+  if (!text || !key) return ""
 
-  const startIndex = text.indexOf(title)
-  if (startIndex === -1) return ""
+  const emojiMap: Record<string, string> = {
+    overall: '🌟',
+    wealth: '💰',
+    career: '💼',
+    invest: '📈',
+    relation: '🤝',
+    remind: '🎯',
+  }
 
-  const rest = text.slice(startIndex + title.length)
-  const nextTitleIndex = rest.indexOf("【")
+  const order = ['🌟', '💰', '💼', '📈', '🤝', '🎯']
 
-  return nextTitleIndex !== -1
-    ? rest.slice(0, nextTitleIndex).trim()
-    : rest.trim()
+  const emoji = emojiMap[key]
+  if (!emoji) return ""
+
+  const start = text.indexOf(emoji)
+  if (start === -1) return ""
+
+  // 找下一個 emoji 作為結尾
+  const nextIndexes = order
+    .map(e => text.indexOf(e, start + 2))
+    .filter(i => i !== -1 && i > start)
+
+  const end = nextIndexes.length ? Math.min(...nextIndexes) : text.length
+
+  return text.slice(start, end).trim()
 }
 
 function getScoreColor(score: number): string {

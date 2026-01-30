@@ -256,13 +256,13 @@ export default function CalendarView() {
           ))}
         </div>
 
-        <div className="grid grid-cols-7 gap-2">
+        <div className="grid grid-cols-7 gap-1.5">
           {cells.map((c, i) =>
             c.iso && c.date && monthData[c.iso] ? (
               <button
                 key={i}
                 onClick={() => onSelectDate(c.iso)}
-                className=" aspect-square rounded-xl bg-white/5 p-1.5 text-left flex flex-col "
+                className="aspect-square min-w-[44px] rounded-xl bg-white/5 p-1.5 text-left flex flex-col"
               >
                 <div className="flex items-center justify-between">
                   <div className={isSameDay(c.date, today) ? "font-semibold" : ""}>
