@@ -47,6 +47,35 @@ function dotTone(v: number) {
   return "bg-red-400"
 }
 
+function renderLuckyColor(color: string) {
+  return (
+    <span className={colorByText(color)}>
+      {color}
+    </span>
+  )
+}
+
+function renderLuckyStone(stone: string) {
+  return (
+    <span className={colorByText(stone)}>
+      {stone}
+    </span>
+  )
+}
+
+function colorByText(text: string) {
+  if (text.includes("紅")) return "text-red-400"
+  if (text.includes("黃")) return "text-yellow-400"
+  if (text.includes("金")) return "text-amber-300"
+  if (text.includes("白")) return "text-white"
+  if (text.includes("綠")) return "text-emerald-400"
+  if (text.includes("藍")) return "text-sky-400"
+  if (text.includes("紫")) return "text-purple-400"
+  if (text.includes("黑")) return "text-neutral-400"
+
+  return "text-white"
+}
+
 /* =========================
    Section（可折疊）
 ========================= */
@@ -65,7 +94,7 @@ function Section({
   const [open, setOpen] = useState(defaultOpen)
 
   return (
-    <div className="rounded-2xl bg-white/5 px-4 py-4">
+    <div className="rounded-2xl bg-white/5 px-1 py-2">
       <button
         onClick={() => setOpen(!open)}
         className="w-full flex items-start justify-between mb-3 text-left"
@@ -211,7 +240,7 @@ export default function MonthView() {
   }
 
   return (
-    <div className="px-1 py-4 text-white space-y-4">
+    <div className="px-1 py-1 text-white space-y-4">
       {/* 月份切換 */}
       <div className="flex items-center justify-between mb-2">
         <button onClick={onPrevMonth}>◀</button>
@@ -247,38 +276,26 @@ export default function MonthView() {
             ))}
           </div>
 
-          {/* Lucky */}
-          <div className="mt-3 grid grid-cols-3 gap-3 text-center">
-            <div className="rounded-xl bg-white/10 px-3 py-3">
-              <div className="text-xs text-white/60 mb-1">幸運色</div>
-              <div className="text-lg font-semibold">
-                <span
-                  className={
-                    monthFortune.lucky.color.includes("白")
-                      ? "text-white"
-                      : monthFortune.lucky.color.includes("紅")
-                      ? "text-red-400"
-                      : "text-emerald-300"
-                  }
-                >
-                  {monthFortune.lucky.color}
-                </span>
-              </div>
-            </div>
+          {/* Lucky（手機友善） */}
+          <div className="mt-3 rounded-xl bg-white/10 px-3 py-3 text-sm text-center">
+            <span className="text-white/60">幸運：</span>
 
-            <div className="rounded-xl bg-white/10 px-3 py-3">
-              <div className="text-xs text-white/60 mb-1">幸運石</div>
-              <div className="text-lg font-semibold">
-                {monthFortune.lucky.stone}
-              </div>
-            </div>
+            <span className="font-semibold">
+              {renderLuckyColor(monthFortune.lucky.color)}
+            </span>
 
-            <div className="rounded-xl bg-white/10 px-3 py-3">
-              <div className="text-xs text-white/60 mb-1">方位</div>
-              <div className="text-lg font-semibold">
-                {monthFortune.lucky.direction}
-              </div>
-            </div>
+             <span className="mx-1 text-white/40"> ｜ </span>
+
+            <span className="font-semibold">
+              {renderLuckyStone(monthFortune.lucky.stone)}
+            </span>
+
+             <span className="mx-1 text-white/40"> ｜ </span>
+
+            <span className="text-white/60">方位：</span>
+            <span className="font-semibold">
+              {monthFortune.lucky.direction}
+            </span>
           </div>
 
           {/* AI 分析 */}
@@ -339,38 +356,26 @@ export default function MonthView() {
             ))}
           </div>
 
-          {/* Lucky（✅ 改用 yearFortune） */}
-          <div className="mt-3 grid grid-cols-3 gap-3 text-center">
-            <div className="rounded-xl bg-white/10 px-3 py-3">
-              <div className="text-xs text-white/60 mb-1">幸運色</div>
-              <div className="text-lg font-semibold">
-                <span
-                  className={
-                    yearFortune.lucky.color.includes("白")
-                      ? "text-white"
-                      : yearFortune.lucky.color.includes("紅")
-                      ? "text-red-400"
-                      : "text-emerald-300"
-                  }
-                >
-                  {yearFortune.lucky.color}
-                </span>
-              </div>
-            </div>
+          {/* Lucky（手機友善） */}
+          <div className="mt-3 rounded-xl bg-white/10 px-3 py-3 text-sm text-center">
+            <span className="text-white/60">幸運：</span>
 
-            <div className="rounded-xl bg-white/10 px-3 py-3">
-              <div className="text-xs text-white/60 mb-1">幸運石</div>
-              <div className="text-lg font-semibold">
-                {yearFortune.lucky.stone}
-              </div>
-            </div>
+            <span className="font-semibold">
+              {renderLuckyColor(yearFortune.lucky.color)}
+            </span>
 
-            <div className="rounded-xl bg-white/10 px-3 py-3">
-              <div className="text-xs text-white/60 mb-1">方位</div>
-              <div className="text-lg font-semibold">
-                {yearFortune.lucky.direction}
-              </div>
-            </div>
+            <span className="mx-1 text-white/40"> ｜ </span>
+
+            <span className="font-semibold">
+              {renderLuckyStone(yearFortune.lucky.stone)}
+            </span>
+
+            <span className="mx-1 text-white/40"> ｜ </span>
+
+            <span className="text-white/60">方位：</span>
+            <span className="font-semibold">
+              {yearFortune.lucky.direction}
+            </span>
           </div>
 
           {/* AI 分析 */}

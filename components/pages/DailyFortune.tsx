@@ -126,7 +126,7 @@ function Section({
   const [open, setOpen] = useState(defaultOpen)
 
   return (
-    <div className="rounded-lg bg-white/5 px-3 py-2">
+    <div className="rounded-lg bg-white/5 px-1 py-2">
       <button
         onClick={() => setOpen(!open)}
         className="w-full flex justify-between items-center text-sm font-medium text-white/85"

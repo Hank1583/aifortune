@@ -60,7 +60,7 @@ function Section({
   const [open, setOpen] = useState(defaultOpen)
 
   return (
-    <div className="rounded-2xl bg-white/5 px-4 py-4">
+    <div className="rounded-2xl bg-white/5 px-1 py-2">
       <button
         onClick={() => setOpen(!open)}
         className="w-full flex items-start justify-between mb-3 text-left"

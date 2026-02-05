@@ -31,7 +31,7 @@ export default function TopNav({
 
   return (
     <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20">
-      <div className="flex items-center gap-8 px-12 py-3 rounded-full bg-white/10 backdrop-blur-md">
+      <div className="flex items-center gap-8 px-8 py-3 rounded-full bg-white/10 backdrop-blur-md">
         {/* Tabs */}
         {tabs.map(([key, label]) => {
           const isActive = active === key
