@@ -57,7 +57,7 @@ export default function DailyFortune() {
   if (!data) return <div>尚無今日運勢</div>
 
   return (
-    <div className="px-4 text-white space-y-4">
+    <div className="px-1 text-white space-y-4">
       {/* 標題 */}
       <h2 className="text-xl font-semibold">📅 今日運勢</h2>
       <div className="text-sm text-white/60">

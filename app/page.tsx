@@ -11,6 +11,7 @@ import ContentPanel from "@/components/layout/ContentPanel"
 import DailyWuxing from "@/components/pages/HomePage"
 import DailyFortune from "@/components/pages/DailyFortune"
 import CalendarView from "@/components/pages/CalendarView"
+import MonthView from "@/components/pages/MonthView"
 import ProfileView from "@/components/pages/ProfileView"
 
 import { useFortuneData } from "@/components/data/HomePage"
@@ -21,7 +22,7 @@ import { useFortuneData } from "@/components/data/HomePage"
 
 export default function HomePage() {
   const [tab, setTab] = useState<
-    "wuxing" | "fortune" | "calendar" | "profile"
+    "wuxing" | "fortune" | "calendar" | "month" | "profile"
   >("wuxing")
 
   const { data, isLoading } = useFortuneData()
@@ -52,18 +53,21 @@ export default function HomePage() {
     : null
 
   return (
-    <main className="home-root">
+    <main className="home-root w-full">
       {/* ===== 宇宙主視覺（只在資料 ready 時顯示） ===== */}
       {!isLoading && todayFortune && (
-        <CosmicSphere todayFortune={todayFortune} />
+        <div className="relative w-full overflow-hidden">
+          <CosmicSphere todayFortune={todayFortune} />
+        </div>
       )}
 
       <TopNav active={tab} onChange={setTab} />
 
-      <ContentPanel>
+      <ContentPanel className="w-full">
         {tab === "wuxing" && <DailyWuxing />}
         {tab === "fortune" && <DailyFortune />}
         {tab === "calendar" && <CalendarView />}
+        {tab === "month" && <MonthView />}
         {tab === "profile" && <ProfileView />}
       </ContentPanel>
     </main>

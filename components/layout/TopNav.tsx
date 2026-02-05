@@ -2,7 +2,7 @@
 
 import { useAuth } from "@/contexts/AuthContext"
 
-type TabKey = "wuxing" | "fortune" | "calendar" | "profile"
+type TabKey = "wuxing" | "fortune" | "calendar" | "month" | "profile"
 
 export default function TopNav({
   active,
@@ -22,6 +22,7 @@ export default function TopNav({
         ["wuxing", "今日五行"],
         ["fortune", "每日運勢"],
         ["calendar", "日曆"],
+        ["month", "月曆"],
         ["profile", "個人資料"],
       ]
     : [
