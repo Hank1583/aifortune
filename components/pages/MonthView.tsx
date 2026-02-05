@@ -255,42 +255,76 @@ export default function MonthView() {
           title={`📅 ${monthFortune.month} 月運勢`}
           defaultOpen
         >
-          {/* 分數 */}
-          <div className="grid grid-cols-5 gap-2 text-sm">
+          {/* ===== 分數（5 個一排，方塊） ===== */}
+          <div className="grid grid-cols-5 gap-2 text-center">
             {([
-              ["整體", monthFortune.scores.overall],
-              ["財運", monthFortune.scores.wealth],
-              ["工作", monthFortune.scores.career],
-              ["投資", monthFortune.scores.invest],
-              ["人際", monthFortune.scores.relation],
-            ] as const).map(([label, value]) => (
-              <div key={label} className="flex items-center gap-1">
-                <span
-                  className={`inline-block w-2 h-2 rounded-full ${dotTone(value)}`}
-                />
-                <span className="text-white/70">{label}</span>
-                <span className={`font-semibold ${scoreTone(value)}`}>
+              ["整體", monthFortune.scores.overall, false],
+              ["工作", monthFortune.scores.career, false],
+              ["人際", monthFortune.scores.relation, false],
+              ["財運", monthFortune.scores.wealth, false],
+              ["投資", monthFortune.scores.invest, false],
+            ] as const).map(([label, value, showDot]) => (
+              <div
+                key={label}
+                className="rounded-xl bg-white/5 px-2 py-2"
+              >
+                <div className="flex items-center justify-center gap-1 text-xs text-white/60">
+                  {showDot && (
+                    <span className={`w-1.5 h-1.5 rounded-full ${dotTone(value)}`} />
+                  )}
+                  {label}
+                </div>
+
+                <div className={`mt-1 text-lg font-semibold ${scoreTone(value)}`}>
                   {value}
-                </span>
+                </div>
               </div>
             ))}
           </div>
 
-          {/* Lucky（手機友善） */}
-          <div className="mt-3 rounded-xl bg-white/10 px-3 py-3 text-sm text-center">
+          {/* ===== 本月十神（月運勢定位） ===== */}
+          {monthFortune.month_shishen && (
+            <div className="mt-3 rounded-xl bg-white/5 px-3 py-3 text-sm">
+              <div className="mb-1 flex items-center gap-1 text-xs text-white/50">
+                🧭 本月主題
+              </div>
+
+              <div className="flex items-start gap-2">
+                <span className="shrink-0 rounded-md bg-yellow-400/20 px-2 py-0.5 text-xs font-semibold text-yellow-300">
+                  {monthFortune.month_shishen.main.key}
+                </span>
+                <span className="text-white/80 leading-relaxed">
+                  {monthFortune.month_shishen.main.desc}
+                </span>
+              </div>
+
+              {monthFortune.month_shishen.sub && (
+                <div className="mt-2 text-xs text-white/60">
+                  輔助：
+                  <span className="ml-1 font-semibold text-white/70">
+                    {monthFortune.month_shishen.sub.key}
+                  </span>
+                  ｜{monthFortune.month_shishen.sub.desc}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ===== Lucky（字體放大） ===== */}
+          <div className="mt-3 rounded-xl border border-white/10 px-3 py-2 text-sm text-center text-white/80">
             <span className="text-white/60">幸運：</span>
 
             <span className="font-semibold">
               {renderLuckyColor(monthFortune.lucky.color)}
             </span>
 
-             <span className="mx-1 text-white/40"> ｜ </span>
+            <span className="mx-1 text-white/40">｜</span>
 
             <span className="font-semibold">
               {renderLuckyStone(monthFortune.lucky.stone)}
             </span>
 
-             <span className="mx-1 text-white/40"> ｜ </span>
+            <span className="mx-1 text-white/40">｜</span>
 
             <span className="text-white/60">方位：</span>
             <span className="font-semibold">
@@ -298,7 +332,7 @@ export default function MonthView() {
             </span>
           </div>
 
-          {/* AI 分析 */}
+          {/* ===== AI 解析 ===== */}
           <Section title="🔍 本月解析" defaultOpen={false}>
             <div className="space-y-2 text-sm leading-relaxed">
               <div className="bg-white/5 rounded-lg px-3 py-2">
@@ -327,31 +361,42 @@ export default function MonthView() {
         </Section>
       )}
 
+
       {/* =====================
           年運勢
       ===================== */}
       {yearFortune && (
         <Section
           title={`🌟 ${yearFortune.year} 年運勢`}
-          subtitle={`年度主軸：${yearFortune.yearType}`}
+          subtitle={
+            <span className="text-sm font-semibold text-white/80">
+              年度主軸：{yearFortune.yearType}
+            </span>
+          }
         >
-          {/* 分數 */}
-          <div className="grid grid-cols-5 gap-2 text-sm">
+          {/* ===== 分數（5 個一排，方塊） ===== */}
+          <div className="grid grid-cols-5 gap-2 text-center">
             {([
-              ["整體", yearFortune.scores.overall],
-              ["財運", yearFortune.scores.wealth],
-              ["工作", yearFortune.scores.career],
-              ["投資", yearFortune.scores.invest],
-              ["人際", yearFortune.scores.relation],
-            ] as const).map(([label, value]) => (
-              <div key={label} className="flex items-center gap-1">
-                <span
-                  className={`inline-block w-2 h-2 rounded-full ${dotTone(value)}`}
-                />
-                <span className="text-white/60">{label}</span>
-                <span className={`font-semibold ${scoreTone(value)}`}>
+              ["整體", yearFortune.scores.overall, false],
+              ["工作", yearFortune.scores.career, false],
+              ["人際", yearFortune.scores.relation, false],
+              ["財運", yearFortune.scores.wealth, false],
+              ["投資", yearFortune.scores.invest, false],
+            ] as const).map(([label, value, showDot]) => (
+              <div
+                key={label}
+                className="rounded-xl bg-white/5 px-2 py-2"
+              >
+                <div className="flex items-center justify-center gap-1 text-xs text-white/60">
+                  {showDot && (
+                    <span className={`w-1.5 h-1.5 rounded-full ${dotTone(value)}`} />
+                  )}
+                  {label}
+                </div>
+
+                <div className={`mt-1 text-lg font-semibold ${scoreTone(value)}`}>
                   {value}
-                </span>
+                </div>
               </div>
             ))}
           </div>

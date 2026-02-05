@@ -5,8 +5,9 @@ const BASE = "https://www.highlight.url.tw/ai_fortune/php"
 ========================= */
 
 export type MonthFortune = {
-  month: string            // 2026-02
-  monthType: string        // 官殺
+  month: string
+  monthType: string
+
   scores: {
     overall: number
     wealth: number
@@ -14,6 +15,7 @@ export type MonthFortune = {
     invest: number
     relation: number
   }
+
   ai: {
     overall: string
     wealth?: string
@@ -21,10 +23,21 @@ export type MonthFortune = {
     invest?: string
     relation?: string
   }
+
   lucky: {
     color: string
     stone: string
     direction: string
+  }
+  month_shishen?: {
+    main: {
+      key: string
+      desc: string
+    }
+    sub?: {
+      key: string
+      desc: string
+    }
   }
 }
 
@@ -36,6 +49,7 @@ export function adaptMonthFortune(api: any): MonthFortune {
   return {
     month: api.month,
     monthType: api.month_type,
+
     scores: {
       overall: api.scores.overall,
       wealth: api.scores.wealth,
@@ -43,6 +57,7 @@ export function adaptMonthFortune(api: any): MonthFortune {
       invest: api.scores.invest,
       relation: api.scores.relation,
     },
+
     ai: {
       overall: api.ai?.overall ?? "",
       wealth: api.ai?.wealth ?? "",
@@ -50,11 +65,26 @@ export function adaptMonthFortune(api: any): MonthFortune {
       invest: api.ai?.invest ?? "",
       relation: api.ai?.relation ?? "",
     },
+
     lucky: {
       color: api.lucky?.color ?? "",
       stone: api.lucky?.stone ?? "",
       direction: api.lucky?.direction ?? "",
     },
+    month_shishen: api.month_shishen
+      ? {
+          main: {
+            key: api.month_shishen.main?.key ?? "",
+            desc: api.month_shishen.main?.desc ?? "",
+          },
+          sub: api.month_shishen.sub
+            ? {
+                key: api.month_shishen.sub.key ?? "",
+                desc: api.month_shishen.sub.desc ?? "",
+              }
+            : undefined,
+        }
+      : undefined,
   }
 }
 
