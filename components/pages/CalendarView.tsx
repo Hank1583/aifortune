@@ -29,17 +29,19 @@ const isSameDay = (a: Date, b: Date) =>
 ========================= */
 
 function scoreTone(v: number) {
-  if (v >= 8) return "text-emerald-300"
-  if (v >= 6) return "text-white/80"
-  if (v >= 4) return "text-yellow-300"
-  return "text-red-300"
+  if (v >= 8.5) return "text-emerald-300"   // 強運
+  if (v >= 7)   return "text-cyan-300"      // 偏強
+  if (v >= 5.5) return "text-white/80"      // 穩定
+  if (v >= 4.5) return "text-yellow-300"    // 偏弱
+  return "text-red-400"                     // 低潮
 }
 
 function dotTone(v: number) {
-  if (v >= 8) return "bg-emerald-400"
-  if (v >= 6) return "bg-white/50"
-  if (v >= 4) return "bg-yellow-400"
-  return "bg-red-400"
+  if (v >= 8.5) return "bg-emerald-400"   // 強運
+  if (v >= 7)   return "bg-cyan-400"      // 偏強
+  if (v >= 5.5) return "bg-white/50"      // 穩定
+  if (v >= 4.5) return "bg-yellow-400"    // 偏弱
+  return "bg-red-400"                     // 低潮
 }
 
 /* =========================

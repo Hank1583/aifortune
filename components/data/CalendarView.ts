@@ -72,6 +72,6 @@ export async function fetchDailyForMonth(
     { cache: "no-store" }
   )
   const json = await res.json()
-  // console.log(json);
+  console.log(json);
   return adaptDailyList(json)
 }

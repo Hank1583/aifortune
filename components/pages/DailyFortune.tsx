@@ -175,10 +175,12 @@ function extractBlock(
   return text.slice(start, end).trim()
 }
 
-function getScoreColor(score: number): string {
-  if (score >= 8) return "text-green-400"
-  if (score >= 5) return "text-yellow-400"
-  return "text-red-400"
+function getScoreColor(v: number): string {
+  if (v >= 8.5) return "text-emerald-300"   // 強運
+  if (v >= 7)   return "text-cyan-300"      // 偏強
+  if (v >= 5.5) return "text-white/80"      // 穩定
+  if (v >= 4.5) return "text-yellow-300"    // 偏弱
+  return "text-red-400"   
 }
 
 function ScoreRow({label,score,}: {label: string,score: string}) {

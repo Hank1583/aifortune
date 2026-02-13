@@ -1,27 +1,30 @@
 "use client"
-
-import React, { useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import React, { useEffect, useState } from 'react'
 import { useFortuneData }from "@/components/data/HomePage"
 /* =========================
    Types / Constants
 ========================= */
-
+type TabKey = "wuxing" | "fortune" | "calendar" | "month" | "profile"
 type WuxingKey = "木" | "火" | "土" | "金" | "水"
-
 type WuxingItem = {
   key: WuxingKey
   value: number
 }
 
 const WUXING_LIST: WuxingKey[] = ["木", "火", "土", "金", "水"]
-
 const WUXING_COLOR: Record<WuxingKey, string> = {
   木: "bg-green-400",
   火: "bg-red-400",
   土: "bg-yellow-400",
   金: "bg-gray-300",
   水: "bg-blue-400",
+}
+
+type ProfiledHintProps = {
+  title: string
+  actionText: string
+  onChange: () => void
 }
 
 /* =========================
@@ -53,10 +56,10 @@ function toneClass(tone: "good" | "neutral" | "warn" | "danger") {
 ========================= */
 
 export default function FortuneHome() {
-  const { member, loading: authLoading } = useAuth()
+  const { data, isLoading, error } = useFortuneData()
+  const { member, loading: authLoading, lineUid} = useAuth()
   const [showTrendDetail, setShowTrendDetail] = useState(false)
   const [activeWuxing, setActiveWuxing] = useState<WuxingKey>(WUXING_LIST[0])
-  const { data, isLoading, error } = useFortuneData()
 
   useEffect(() => {
     if (data?.today?.dominant) {
@@ -121,7 +124,15 @@ export default function FortuneHome() {
 
       {/* ===== 登入後才可看 ===== */}
       {member == null ? (
-        <LockedHint title="登入後可查看 7 日五行趨勢" />
+        <LoginHint title="登入後可查看 7 日五行趨勢" lineUid={lineUid ?? ""} />
+      ) : member.user_fortune_id === -1 ? (
+        // 2️⃣ 已登入但沒命盤
+          <button
+            onClick={() => setShowTrendDetail((v) => !v)}
+            className="w-full rounded-lg border border-white/15 py-2 text-sm text-white/75"
+          >
+            {showTrendDetail ? "收合 7 日趨勢" : "查看 7 日趨勢 →"}
+          </button>
       ) : (
         <>
           <button
@@ -275,19 +286,41 @@ function SevenDayBar({
   )
 }
 
-function LockedHint({ title }: { title: string }) {
+function LoginHint({ title, lineUid, }: { title: string ,lineUid: string }) {
   return (
     <div className="rounded-2xl bg-white/5 px-4 py-4 text-center">
       <div className="mb-2 text-white/80">🔒 {title}</div>
 
       <a
-        href="https://line.me/R/ti/p/@306rtpqm"
+        href={`https://www.highlight.url.tw/ai_fortune/register.php?uid=${lineUid}`}
+        // href="https://line.me/R/ti/p/@306rtpqm"
         target="_blank"
         rel="noopener noreferrer"
         className="inline-block rounded-lg bg-white/10 px-4 py-2 text-sm"
       >
         登入 / 註冊 →
       </a>
+    </div>
+  )
+}
+
+function ProfiledHint({
+  title,
+  actionText,
+  onChange,
+}: ProfiledHintProps) {
+  return (
+    <div className="rounded-2xl bg-white/5 px-4 py-6 text-center">
+      <div className="mb-3 text-white/80 text-sm">
+        🔒 {title}
+      </div>
+
+      <button
+        onClick={onChange}   // ✅ 這裡其實可以更簡潔
+        className="inline-block rounded-lg bg-white/10 px-4 py-2 text-sm hover:bg-white/20 transition"
+      >
+        {actionText}
+      </button>
     </div>
   )
 }
