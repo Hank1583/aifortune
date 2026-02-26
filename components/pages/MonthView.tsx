@@ -126,12 +126,7 @@ function Section({
 ========================= */
 
 export default function MonthView() {
-  const {
-    member,
-    loading: authLoading,
-    isPaid,
-    openLogin,
-  } = useAuth()
+  const { member, loading: authLoading, isPaid, openLogin, } = useAuth()
   const [yearFortune, setYearFortune] = useState<YearFortune | null>(null)
   const uid = member ? String(member.member_id) : "guest"
 
@@ -335,6 +330,7 @@ export default function MonthView() {
           </div>
 
           {/* ===== AI 解析 ===== */}
+          {isPaid && (
           <Section title="🔍 本月解析" defaultOpen={false}>
             <div className="space-y-2 text-sm leading-relaxed">
               <div className="bg-white/5 rounded-lg px-3 py-2">
@@ -360,6 +356,7 @@ export default function MonthView() {
               )}
             </div>
           </Section>
+          )}
         </Section>
       )}
 
@@ -426,6 +423,7 @@ export default function MonthView() {
           </div>
 
           {/* AI 分析 */}
+          {isPaid && (
           <Section title="🔍 年度解析" defaultOpen={false}>
             <div className="space-y-2 text-sm leading-relaxed">
               <div className="bg-white/5 rounded-lg px-3 py-2">
@@ -451,6 +449,7 @@ export default function MonthView() {
               )}
             </div>
           </Section>
+          )}
         </Section>
       )}
 

@@ -53,6 +53,7 @@ export type ProfileData = {
   dayMasterStrength: DayMasterStrength
   wuxing: WuxingCount
   tenGod: TenGodCount
+  shishen_analysis: string
 }
 
 /* =========================
@@ -109,6 +110,7 @@ export function getEmptyProfile(): ProfileData {
       偏印: 0,
       正印: 0,
     },
+    shishen_analysis: ""
   }
 }
 
@@ -170,6 +172,8 @@ function mapApiToProfile(api: any): ProfileData {
       api.shishen_json,
       empty.tenGod
     ),
+
+    shishen_analysis:api.shishen_analysis
   }
 }
 

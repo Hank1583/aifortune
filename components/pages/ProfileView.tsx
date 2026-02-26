@@ -32,7 +32,7 @@ const WUXING_COLOR: Record<WuxingKey, string> = {
    主頁
 ========================= */
 export default function ProfilePage() {
-  const { member, loading: authLoading } = useAuth()
+  const { member, loading: authLoading, isPaid} = useAuth()
   const [profile, setProfile] = useState<ProfileData | null>(null)
   const [birthDate, setBirthDate] = useState("")
   const [birthTime, setBirthTime] = useState("")
@@ -134,6 +134,16 @@ export default function ProfilePage() {
   /* =========================
      Render Gate（只能在 Hooks 後）
   ========================= */
+
+  const formatShishenText = (text: string) => {
+    if (!text) return ""
+
+    return text
+      // 1️⃣ 移除標題
+      .replace(/^【十神解讀】\s*\n*/u, "")
+      // 2️⃣ 把每個單一換行變成雙換行
+      .replace(/\n/g, "\n\n")
+  }
 
   if (authLoading || !profile) {
     return <div>載入中...</div>
@@ -285,25 +295,40 @@ export default function ProfilePage() {
       </SectionCard>
 
       {/* ================= 十神分佈 ================= */}
+      {isPaid &&(
       <SectionCard>
         <div
           className="flex items-center justify-between mb-3 cursor-pointer"
           onClick={() => setIsTenGodOpen(!isTenGodOpen)}
         >
-          <h3 className="font-semibold">📊 十神分佈</h3>
+          <h3 className="font-semibold">📊 十神</h3>
           <span className="text-xs text-white/50">
             {isTenGodOpen ? "收合" : "展開"}
           </span>
         </div>
 
         {isTenGodOpen && (
-          <div className="space-y-2">
-            {tenGodList.map(([k, v]) => (
-              <Bar key={k} label={k} value={v} max={maxTenGod || 1} />
-            ))}
+          <div className="space-y-3">
+            {/* 1) 十神長條 */}
+            <div className="space-y-2">
+              {tenGodList.map(([k, v]) => (
+                <Bar key={k} label={k} value={v} max={maxTenGod || 1} />
+              ))}
+            </div>
+
+            {/* 2) 十神文字分析（VIP） */}
+            {!!profile?.shishen_analysis && (
+              <div className="rounded-xl bg-white/5 border border-white/10 p-3">
+                <div className="font-semibold mb-5">🧾 十神解讀（VIP）</div>
+                <div className="text-sm text-white/85 whitespace-pre-line leading-relaxed">
+                  {formatShishenText(profile.shishen_analysis)}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </SectionCard>
+      )}
     </div>
   )
 }

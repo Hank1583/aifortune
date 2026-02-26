@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react"
 import { initLiff, getIdToken, isLoggedIn } from "@/lib/liff"
 
-type Plan = "free" | "paid"
+type Plan = "free" | "vip"
 
 type Member = {
   member_id: number
@@ -40,8 +40,6 @@ const AuthContext = createContext<AuthContextType | null>(null)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   /** 🔧 開發用（上線請設 false） */
-  const DEV_FORCE_LOGIN = false
-
   const [isLogin, setIsLogin] = useState(false)
   const [loading, setLoading] = useState(true)
   const [member, setMember] = useState<Member | null>(null)
@@ -51,31 +49,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     async function initAuth() {
       try {
-        if (DEV_FORCE_LOGIN) {
-          setIsLogin(true)
-          setPlan("free")
-          setLoading(false)
-          return
-        }
+        // const liff = await initLiff()
 
-        const liff = await initLiff()
+        // if (!isLoggedIn()) {
+        //   liff.login()
+        //   return
+        // }
 
-        if (!isLoggedIn()) {
-          liff.login()
-          return
-        }
+        // /** 1️⃣ 取得 LINE ID Token */
+        // const idToken = getIdToken()
+        // if (!idToken) throw new Error("No LINE ID Token")
 
-        /** 1️⃣ 取得 LINE ID Token */
-        const idToken = getIdToken()
-        if (!idToken) throw new Error("No LINE ID Token")
+        // /** 2️⃣ decode JWT 取 sub（前端可用、後端也會再驗） */
+        // const payload = JSON.parse(
+        //   atob(idToken.split(".")[1])
+        // )
+        // const lineId = payload.sub
 
-        /** 2️⃣ decode JWT 取 sub（前端可用、後端也會再驗） */
-        const payload = JSON.parse(
-          atob(idToken.split(".")[1])
-        )
-        const lineId = payload.sub
-
-        // const lineId = "U06e1d5253a127b6f4ab5c3227f826b00"//Hank
+        const lineId = "U06e1d5253a127b6f4ab5c3227f826b00"//Hank
         // const lineId = "U07fd76a4221d13488c687d995ed3a499"//Vera
         // const lineId = "ASDASDASDASD"//Test
 
@@ -147,7 +138,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loading,
         member,
         plan,
-        isPaid: plan === "paid",
+        isPaid: plan === "vip",
         isLoginOpen,
         openLogin,
         closeLogin,

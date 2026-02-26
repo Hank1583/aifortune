@@ -1,5 +1,5 @@
 "use client"
-
+import ReactECharts from "echarts-for-react"
 import React, { useEffect, useMemo, useState } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import {
@@ -87,6 +87,116 @@ function Section({
   )
 }
 
+function FortuneCurveChart({
+  data,
+  maxPoint,
+  onPickISO,
+}: {
+  data: Array<{ iso: string; day: number; score: number }>
+  maxPoint?: { iso: string; day: number; score: number }
+  onPickISO: (iso: string) => void
+}) {
+  const option = useMemo(() => {
+    const days = data.map((d) => d.day)
+    const scores = data.map((d) => d.score)
+
+    return {
+      backgroundColor: "transparent",
+      grid: { left: 30, right: 15, top: 10, bottom: 30 },
+      tooltip: {
+        trigger: "axis",
+        backgroundColor: "rgba(20,20,20,0.95)",
+        borderColor: "rgba(255,255,255,0.15)",
+        textStyle: { color: "#fff" },
+        valueFormatter: (v: any) => Number(v).toFixed(1),
+      },
+      xAxis: {
+        type: "category",
+        data: days,
+        axisLabel: { color: "rgba(255,255,255,0.65)" },
+        axisLine: { lineStyle: { color: "rgba(255,255,255,0.15)" } },
+      },
+      yAxis: {
+        type: "value",
+        min: 0,
+        max: 10,
+        interval: 2,
+        axisLabel: { color: "rgba(255,255,255,0.65)" },
+        splitLine: { lineStyle: { color: "rgba(255,255,255,0.08)" } },
+      },
+
+      // ✅ inside-only：手機捏合、桌機滾輪、拖曳平移
+      dataZoom: [
+        {
+          type: "inside",
+          xAxisIndex: 0,
+          zoomOnMouseWheel: true,
+          moveOnMouseWheel: false,
+          moveOnMouseMove: true,
+          preventDefaultMouseMove: true,
+        },
+      ],
+
+      series: [
+        {
+          type: "line",
+          data: scores,
+          smooth: true,
+          symbol: "circle",
+          symbolSize: 6,
+          lineStyle: { width: 2, color: "rgba(255,255,255,0.9)" },
+          itemStyle: { color: "rgba(255,255,255,0.9)" },
+          areaStyle: {
+            color: {
+              type: "linear",
+              x: 0,
+              y: 0,
+              x2: 0,
+              y2: 1,
+              colorStops: [
+                { offset: 0, color: "rgba(255,255,255,0.15)" },
+                { offset: 1, color: "rgba(255,255,255,0.02)" },
+              ],
+            },
+          },
+          // ✅ 標記最高點（綠色）
+          markLine: maxPoint
+            ? {
+                symbol: "none",
+                lineStyle: { color: "rgba(16,185,129,0.5)", width: 1 },
+                label: { show: false },
+                data: [{ xAxis: maxPoint.day-1 }],
+              }
+            : undefined,
+        },
+      ],
+    }
+  }, [data, maxPoint])
+
+  const onEvents = useMemo(
+    () => ({
+      click: (params: any) => {
+        const idx = params?.dataIndex
+        const iso = data[idx]?.iso
+        if (iso) onPickISO(iso)
+      },
+    }),
+    [data, onPickISO]
+  )
+
+  if (!data?.length) return null
+
+  return (
+    <div className="w-full h-[260px] touch-none">
+      <ReactECharts
+        option={option}
+        onEvents={onEvents}
+        style={{ width: "100%", height: "100%" }}
+      />
+    </div>
+  )
+}
+
 /* =========================
    Page
 ========================= */
@@ -160,6 +270,27 @@ export default function CalendarView() {
 
   const selected = monthData[selectedISO]
 
+  // 你要畫哪個分數（預設財運）
+  const [curveKey, setCurveKey] = useState<
+    "overall" | "wealth" | "work" | "investment" | "social"
+  >("wealth")
+
+  const curveData = useMemo(() => {
+    // monthData: Record<iso, DailyFortune>
+    const rows = Object.values(monthData)
+      .map((d) => ({
+        iso: d.date,                // 你這裡 d.date 看起來就是 YYYY-MM-DD
+        day: Number(d.date.slice(8, 10)),
+        score: Number(d.scores[curveKey] ?? 0),
+      }))
+      .sort((a, b) => a.iso.localeCompare(b.iso))
+
+    let max = rows[0]
+    for (const r of rows) if (!max || r.score > max.score) max = r
+
+    return { rows, max }
+  }, [monthData, curveKey])
+  
   /* ===== 操作 ===== */
   const onPrevMonth = () => {
     if (!member) return openLogin()
@@ -236,6 +367,55 @@ export default function CalendarView() {
           )}
         </div>
       </Section>
+
+      {/* ===== 分數曲線 ===== */}
+      {isPaid && (
+      <Section
+        title="📈 分數曲線"
+        subtitle={
+          curveData.max
+            ? `本月最高：${curveData.max.iso}（${curveData.max.score.toFixed(1)}）`
+            : undefined
+        }
+        defaultOpen
+      >
+        <div className="flex gap-2 flex-wrap">
+          {(
+            [
+              ["整體", "overall"],
+              ["財運", "wealth"],
+              ["工作", "work"],
+              ["投資", "investment"],
+              ["人際", "social"],
+            ] as const
+          ).map(([label, key]) => (
+            <button
+              key={key}
+              onClick={() => setCurveKey(key)}
+              className={
+                "px-3 py-1.5 rounded-full text-xs border " +
+                (curveKey === key
+                  ? "bg-white/15 border-white/20 text-white"
+                  : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10")
+              }
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <FortuneCurveChart
+          data={curveData.rows}
+          maxPoint={curveData.max}
+          onPickISO={(iso) => {
+            setSelectedISO(iso)   // 點曲線同步日曆單日詳細
+          }}
+        />
+        <div className="text-xs text-white/50">
+          提示：點曲線上的點可直接切換到該日詳細。
+        </div>
+      </Section>
+      )}
 
       {/* ===== 單日詳細 ===== */}
       {member && selected && (

@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { fetchDailyFortune } from "@/components/data/DailyFortune"
 import type { FortuneResponse } from "@/components/data/DailyFortune"
 import { useAuth } from "@/contexts/AuthContext"
 
 export const dailyCache: Record<string, FortuneResponse> = {}
-export const dailyPending: Record<string, boolean> = {}
+export const dailyPending: Record<string, Promise<FortuneResponse>> = {}
 
 /* ===== 工具：今天日期 ===== */
 function formatDateYMD(date: Date): string {
@@ -15,61 +15,63 @@ function formatDateYMD(date: Date): string {
 }
 
 export default function DailyFortune() {
-  const { member, loading: authLoading } = useAuth()
+  const { member, loading: authLoading, isPaid} = useAuth()
   const [data, setData] = useState<FortuneResponse | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const date = formatDateYMD(new Date())
+  const date = useMemo(() => formatDateYMD(new Date()), [])
 
   useEffect(() => {
     if (authLoading) return
 
-    const uid = member
-      ? String(member.member_id)
-      : "guest"
-
+    const uid = member ? String(member.member_id) : "guest"
     const cacheKey = `${uid}|${date}`
 
+    // 1) 命中快取
     if (dailyCache[cacheKey]) {
       setData(dailyCache[cacheKey])
       setLoading(false)
       return
     }
 
-    // ✅ 防止重複請求
-    if (dailyPending[cacheKey]) return
-    dailyPending[cacheKey] = true
-
     setLoading(true)
+    setError(null)
 
-    fetchDailyFortune(uid, date)
-      .then(res => {
-        dailyCache[cacheKey] = res
-        setData(res)
+    // 2) 如果已經有人在打同一支 API，就等同一個 Promise
+    const p =
+      dailyPending[cacheKey] ??
+      (dailyPending[cacheKey] = fetchDailyFortune(uid, date))
+
+    p.then((res) => {
+      dailyCache[cacheKey] = res
+      setData(res)
+    })
+      .catch((e) => {
+        setError(e?.message ?? "取得運勢失敗")
+        setData(null)
       })
       .finally(() => {
-        delete dailyPending[cacheKey]
+        // 清掉 pending（只清自己的 key）
+        if (dailyPending[cacheKey] === p) delete dailyPending[cacheKey]
         setLoading(false)
       })
   }, [authLoading, member, date])
 
   if (loading) return <div>運勢計算中...</div>
+  if (error) return <div className="text-red-300">⚠️ {error}</div>
   if (!data) return <div>尚無今日運勢</div>
 
+  // ... 你原本的 render 不用改
   return (
     <div className="px-1 text-white space-y-4">
-      {/* 標題 */}
       <h2 className="text-xl font-semibold">📅 今日運勢</h2>
       <div className="text-sm text-white/60">
         {data.date}（{data.gz.year} {data.gz.month} {data.gz.day}）
       </div>
 
-      {/* ① 系統分項（可收合） */}
       <div className="rounded-lg bg-white/5 px-3 py-3 space-y-2">
-        <div className="text-sm text-white/60 mb-1">
-          【系統計算分項運勢】
-        </div>
-
+        <div className="text-sm text-white/60 mb-1">【系統計算分項運勢】</div>
         <ScoreRow label="整體運勢" score={data.score.overall} />
         <ScoreRow label="財運" score={data.score.wealth} />
         <ScoreRow label="工作運" score={data.score.career} />
@@ -77,37 +79,43 @@ export default function DailyFortune() {
         <ScoreRow label="人際運" score={data.score.relation} />
       </div>
 
-      {/* ② 整體運勢文字 */}
-      <Section title="整體運勢說明">
+      {/* ② 整體運勢文字（免費） */}
+      <Section title="整體運勢說明" defaultOpen>
         <p className="text-sm text-white/80 leading-relaxed">
           {extractBlock(data.text, "overall")}
         </p>
       </Section>
 
-      {/* ③ 各分項說明 */}
-      <Section title="財運">
-        <p className="text-sm text-white/80 leading-relaxed">
-          {extractBlock(data.text, "wealth")}
-        </p>
-      </Section>
+      {/* ③ 只有 VIP 才顯示 */}
+      {isPaid && (
+        <>
+          <Section title="財運">
+            <p className="text-sm text-white/80 leading-relaxed">
+              {extractBlock(data.text, "wealth")}
+            </p>
+          </Section>
 
-      <Section title="工作運">
-        <p className="text-sm text-white/80 leading-relaxed">
-          {extractBlock(data.text, "career")}
-        </p>
-      </Section>
+          <Section title="工作運">
+            <p className="text-sm text-white/80 leading-relaxed">
+              {extractBlock(data.text, "career")}
+            </p>
+          </Section>
 
-      <Section title="投資建議">
-        <p className="text-sm text-white/80 leading-relaxed">
-          {extractBlock(data.text, "invest")}
-        </p>
-      </Section>
+          <Section title="投資建議">
+            <p className="text-sm text-white/80 leading-relaxed">
+              {extractBlock(data.text, "invest")}
+            </p>
+          </Section>
 
-      <Section title="人際互動">
-        <p className="text-sm text-white/80 leading-relaxed">
-          {extractBlock(data.text, "relation")}
-        </p>
-      </Section>
+          <Section title="人際互動">
+            <p className="text-sm text-white/80 leading-relaxed">
+              {extractBlock(data.text, "relation")}
+            </p>
+          </Section>
+        </>
+      )}
+
+      {/* 其他 Section 同理 */}
     </div>
   )
 }
@@ -144,35 +152,35 @@ function Section({
 
 function extractBlock(
   text?: string | null,
-  key?: 'overall' | 'wealth' | 'career' | 'invest' | 'relation' | 'remind'
+  key?: "overall" | "wealth" | "career" | "invest" | "relation" | "remind"
 ): string {
   if (!text || !key) return ""
 
   const emojiMap: Record<string, string> = {
-    overall: '🌟',
-    wealth: '💰',
-    career: '💼',
-    invest: '📈',
-    relation: '🤝',
-    remind: '🎯',
+    overall: "🌟",
+    wealth: "💰",
+    career: "💼",
+    invest: "📈",
+    relation: "🤝",
+    remind: "🎯",
   }
 
-  const order = ['🌟', '💰', '💼', '📈', '🤝', '🎯']
-
+  const order = ["🌟", "💰", "💼", "📈", "🤝", "🎯"]
   const emoji = emojiMap[key]
   if (!emoji) return ""
 
   const start = text.indexOf(emoji)
   if (start === -1) return ""
 
-  // 找下一個 emoji 作為結尾
   const nextIndexes = order
-    .map(e => text.indexOf(e, start + 2))
-    .filter(i => i !== -1 && i > start)
+    .map((e) => text.indexOf(e, start + emoji.length))
+    .filter((i) => i !== -1 && i > start)
 
   const end = nextIndexes.length ? Math.min(...nextIndexes) : text.length
 
-  return text.slice(start, end).trim()
+  // 切出區塊後，把第一個 emoji 移除，再 trim
+  const block = text.slice(start, end).trim()
+  return block.replace(emoji, "").trim()
 }
 
 function getScoreColor(v: number): string {
