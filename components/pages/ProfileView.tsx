@@ -319,7 +319,7 @@ export default function ProfilePage() {
             {/* 2) 十神文字分析（VIP） */}
             {!!profile?.shishen_analysis && (
               <div className="rounded-xl bg-white/5 border border-white/10 p-3">
-                <div className="font-semibold mb-5">🧾 十神解讀（VIP）</div>
+                <div className="font-semibold mb-5">🔒 AI 深度命盤解析（VIP）</div>
                 <div className="text-sm text-white/85 whitespace-pre-line leading-relaxed">
                   {formatShishenText(profile.shishen_analysis)}
                 </div>
