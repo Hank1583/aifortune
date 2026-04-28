@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "AI Fortune",
+  title: "未來演算所 | AI Fortune",
   description: "AI 運勢與個人命盤服務",
 }
 
