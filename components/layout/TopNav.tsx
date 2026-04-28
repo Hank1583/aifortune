@@ -24,8 +24,8 @@ export default function TopNav({
     : [["wuxing", "今日五行"]]
 
   return (
-    <div className="absolute top-6 left-1/2 z-20 -translate-x-1/2">
-      <div className="flex flex-wrap items-center justify-center gap-8 rounded-full bg-white/10 px-8 py-3 backdrop-blur-md">
+    <div className="absolute top-4 left-1/2 z-20 w-[calc(100vw-24px)] max-w-max -translate-x-1/2 sm:top-6">
+      <div className="flex w-full items-center gap-4 overflow-x-auto rounded-full bg-white/10 px-4 py-3 backdrop-blur-md sm:justify-center sm:gap-8 sm:px-8">
         {tabs.map(([key, label]) => {
           const isActive = active === key
 
@@ -34,7 +34,7 @@ export default function TopNav({
               key={key}
               type="button"
               onClick={() => onChange(key)}
-              className={`whitespace-nowrap text-sm transition ${
+              className={`shrink-0 whitespace-nowrap text-sm transition ${
                 isActive
                   ? "font-semibold text-white"
                   : "text-white/60 hover:text-white"
