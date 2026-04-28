@@ -1,9 +1,16 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState } from "react"
-import { initLiff, getIdToken, isLoggedIn } from "@/lib/liff"
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react"
+import { getIdToken, initLiff, isLoggedIn } from "@/lib/liff"
 
 type Plan = "free" | "vip"
+type EntryMode = "auto" | "line" | "web"
 
 type Member = {
   member_id: number
@@ -16,38 +23,146 @@ type Member = {
   user_fortune_id?: number
 }
 
+type WebLoginForm = {
+  email: string
+  password: string
+}
+
 type AuthContextType = {
   isLogin: boolean
   loading: boolean
-
-  // 👤 會員資料
   member: Member | null
-
-  // 💳 方案
   plan: Plan
   isPaid: boolean
-
-  // UI
   openLogin: () => void
   closeLogin: () => void
   isLoginOpen: boolean
   lineUid: string | null
   logout: () => void
+  entryMode: Exclude<EntryMode, "auto">
+  setEntryMode: (mode: Exclude<EntryMode, "auto">) => void
+  loginError: string | null
+  loginWithWeb: (form: WebLoginForm) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+const MEMBER_STORAGE_KEY = "member"
+const ENTRY_MODE_STORAGE_KEY = "entry_mode"
+const DEFAULT_APP_ID = "ai_fortune"
+const WEB_LOGIN_APP_ID = "ai_fortune"
+const WEB_LOGIN_ENDPOINT = "https://www.highlight.url.tw/api/login.php"
 
-  /** 🔧 開發用（上線請設 false） */
+function resolveEntryMode(search: string): EntryMode {
+  const params = new URLSearchParams(search)
+  const entry = params.get("entry")
+
+  if (entry === "line" || entry === "web") return entry
+  return "auto"
+}
+
+function detectRuntimeEntryMode(mode: EntryMode): "line" | "web" {
+  if (mode === "line" || mode === "web") return mode
+  if (typeof window === "undefined") return "web"
+
+  const ua = window.navigator.userAgent.toLowerCase()
+  return ua.includes(" line/") ? "line" : "web"
+}
+
+function normalizeMember(raw: unknown): Member | null {
+  if (!raw || typeof raw !== "object") return null
+
+  const data = raw as Record<string, unknown>
+  if (typeof data.member_id !== "number") return null
+  if (typeof data.subscription !== "string") return null
+
+  return {
+    member_id: data.member_id,
+    email: typeof data.email === "string" ? data.email : "",
+    name: typeof data.name === "string" ? data.name : "",
+    app_id: typeof data.app_id === "string" ? data.app_id : DEFAULT_APP_ID,
+    subscription: data.subscription === "vip" ? "vip" : "free",
+    avatar: typeof data.avatar === "string" ? data.avatar : undefined,
+    expire_date:
+      typeof data.expire_date === "string" ? data.expire_date : null,
+    user_fortune_id:
+      typeof data.user_fortune_id === "number" ? data.user_fortune_id : undefined,
+  }
+}
+
+function persistEntryMode(mode: "line" | "web") {
+  localStorage.setItem(ENTRY_MODE_STORAGE_KEY, mode)
+
+  const url = new URL(window.location.href)
+  url.searchParams.set("entry", mode)
+  window.history.replaceState({}, "", url)
+}
+
+async function loginWithLineUid(lineUid: string): Promise<Member | null> {
+  const formData = new FormData()
+  formData.append("app_id", DEFAULT_APP_ID)
+  formData.append("line_uid", lineUid)
+
+  const res = await fetch("https://www.highlight.url.tw/api/login_line.php", {
+    method: "POST",
+    body: formData,
+  })
+  const data = await res.json()
+
+  if (data.status !== "success") return null
+
+  return {
+    member_id: data.member_id,
+    email: data.email,
+    name: data.name,
+    app_id: data.app_id,
+    subscription: data.subscription,
+    avatar: data.avatar,
+    expire_date: data.expire_date,
+    user_fortune_id: data.user_fortune_id,
+  }
+}
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLogin, setIsLogin] = useState(false)
   const [loading, setLoading] = useState(true)
   const [member, setMember] = useState<Member | null>(null)
-  const [plan, setPlan] = useState<Plan>("free")
   const [isLoginOpen, setIsLoginOpen] = useState(false)
   const [lineUid, setLineUid] = useState<string | null>(null)
+  const [loginError, setLoginError] = useState<string | null>(null)
+  const [entryMode, setEntryModeState] = useState<"line" | "web">("web")
+
   useEffect(() => {
-    async function initAuth() {
+    const preferred = resolveEntryMode(window.location.search)
+    const storedMode = localStorage.getItem(ENTRY_MODE_STORAGE_KEY)
+    const nextMode = detectRuntimeEntryMode(
+      preferred !== "auto"
+        ? preferred
+        : storedMode === "line" || storedMode === "web"
+          ? storedMode
+          : "auto"
+    )
+
+    setEntryModeState(nextMode)
+
+    const storedMember = normalizeMember(
+      JSON.parse(localStorage.getItem(MEMBER_STORAGE_KEY) ?? "null")
+    )
+
+    if (storedMember) {
+      setMember(storedMember)
+      setIsLogin(true)
+    }
+
+    if (nextMode === "web") {
+      if (!storedMember) {
+        setIsLoginOpen(true)
+      }
+      setLoading(false)
+      return
+    }
+
+    async function initLineAuth() {
       try {
         const liff = await initLiff()
 
@@ -56,79 +171,113 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return
         }
 
-        /** 1️⃣ 取得 LINE ID Token */
         const idToken = getIdToken()
         if (!idToken) throw new Error("No LINE ID Token")
 
-        /** 2️⃣ decode JWT 取 sub（前端可用、後端也會再驗） */
-        const payload = JSON.parse(
-          atob(idToken.split(".")[1])
-        )
-        const lineId = payload.sub
+        const payload = JSON.parse(atob(idToken.split(".")[1]))
+        const nextLineUid = payload.sub
+        setLineUid(nextLineUid)
 
-        // const lineId = "U06e1d5253a127b6f4ab5c3227f826b00"//Hank
-        // const lineId = "U07fd76a4221d13488c687d995ed3a499"//Vera
-        // const lineId = "ASDASDASDASD"//Test
-
-        setLineUid(lineId)
-
-        /** 3️⃣ 呼叫你的會員 API */
-        const formData = new FormData()
-        formData.append("app_id", "ai_fortune")
-        formData.append("line_uid", lineId)
-        const res = await fetch(
-          "https://www.highlight.url.tw/api/login_line.php",
-          {
-            method: "POST",
-            body: formData,
-          }
-        )
-        const data = await res.json()
-
-        if (data.status !== "success") {
+        const nextMember = await loginWithLineUid(nextLineUid)
+        if (!nextMember) {
           setIsLogin(false)
           setMember(null)
-          setPlan("free")
           return
         }
 
-        /** 4️⃣ 存會員資料 */
-        const memberData: Member = {
-          member_id: data.member_id,
-          email: data.email,
-          name: data.name,
-          app_id: data.app_id,
-          subscription: data.subscription,
-          avatar: data.avatar,
-          expire_date: data.expire_date,
-          user_fortune_id:data.user_fortune_id
-        }
-        setMember(memberData)
-        setPlan(data.subscription)
+        localStorage.setItem(MEMBER_STORAGE_KEY, JSON.stringify(nextMember))
+        setMember(nextMember)
         setIsLogin(true)
-
-        /** optional：存 localStorage */
-        localStorage.setItem("member", JSON.stringify(memberData))
-
       } catch (err) {
         console.error("Auth init error:", err)
         setIsLogin(false)
+        setLoginError("LINE 登入失敗")
       } finally {
         setLoading(false)
       }
     }
 
-    initAuth()
+    initLineAuth()
   }, [])
 
+  const plan = useMemo<Plan>(() => member?.subscription ?? "free", [member])
+
   const logout = () => {
-    localStorage.removeItem("member")
+    localStorage.removeItem(MEMBER_STORAGE_KEY)
     setMember(null)
     setIsLogin(false)
-    setPlan("free")
+    setLoginError(null)
+    if (entryMode === "web") {
+      setIsLoginOpen(true)
+    }
   }
 
-  const openLogin = () => setIsLoginOpen(true)
+  const setEntryMode = (mode: "line" | "web") => {
+    persistEntryMode(mode)
+    setEntryModeState(mode)
+    setLoginError(null)
+
+    if (mode === "web") {
+      setIsLoginOpen(true)
+      return
+    }
+
+    window.location.reload()
+  }
+
+  const loginWithWeb = async ({ email, password }: WebLoginForm) => {
+    setLoginError(null)
+
+    const body = new URLSearchParams()
+    body.set("email", email)
+    body.set("password", password)
+    body.set("app_id", WEB_LOGIN_APP_ID)
+
+    const res = await fetch(WEB_LOGIN_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: body.toString(),
+    })
+    const data = await res.json()
+
+    if (!res.ok || data.status !== "success") {
+      throw new Error(data.message ?? "帳號或密碼錯誤")
+    }
+
+    const nextMember = normalizeMember({
+      member_id: data.member_id,
+      email: data.email,
+      name: data.name,
+      app_id: data.app_id,
+      subscription: data.subscription,
+      avatar: data.avatar,
+      expire_date: data.expire_date,
+      user_fortune_id: data.user_fortune_id,
+    })
+
+    if (!nextMember) {
+      throw new Error("登入成功，但會員資料格式不正確")
+    }
+
+    localStorage.setItem(MEMBER_STORAGE_KEY, JSON.stringify(nextMember))
+    setMember(nextMember)
+    setIsLogin(true)
+    setIsLoginOpen(false)
+  }
+
+  const openLogin = () => {
+    if (entryMode === "line") {
+      const url = new URL(window.location.href)
+      url.searchParams.set("entry", "line")
+      window.location.href = url.toString()
+      return
+    }
+
+    setIsLoginOpen(true)
+  }
+
   const closeLogin = () => setIsLoginOpen(false)
 
   return (
@@ -143,7 +292,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         openLogin,
         closeLogin,
         logout,
-        lineUid
+        lineUid,
+        entryMode,
+        setEntryMode,
+        loginError,
+        loginWithWeb,
       }}
     >
       {children}

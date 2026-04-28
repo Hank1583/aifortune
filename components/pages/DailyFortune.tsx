@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import FortuneShareButton from "@/components/common/FortuneShareButton"
 import { fetchDailyFortune } from "@/components/data/DailyFortune"
 import type { FortuneResponse } from "@/components/data/DailyFortune"
 import { useAuth } from "@/contexts/AuthContext"
@@ -6,7 +7,6 @@ import { useAuth } from "@/contexts/AuthContext"
 export const dailyCache: Record<string, FortuneResponse> = {}
 export const dailyPending: Record<string, Promise<FortuneResponse>> = {}
 
-/* ===== 工具：今天日期 ===== */
 function formatDateYMD(date: Date): string {
   const y = date.getFullYear()
   const m = String(date.getMonth() + 1).padStart(2, "0")
@@ -15,112 +15,126 @@ function formatDateYMD(date: Date): string {
 }
 
 export default function DailyFortune() {
-  const { member, loading: authLoading, isPaid} = useAuth()
+  const { member, loading: authLoading, isPaid } = useAuth()
   const [data, setData] = useState<FortuneResponse | null>(null)
-  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const date = useMemo(() => formatDateYMD(new Date()), [])
+  const uid = member ? String(member.member_id) : "guest"
+  const cacheKey = `${uid}|${date}`
+  const cachedData = dailyCache[cacheKey] ?? null
+  const displayData = data ?? cachedData
 
   useEffect(() => {
-    if (authLoading) return
+    if (authLoading || cachedData) return
 
-    const uid = member ? String(member.member_id) : "guest"
-    const cacheKey = `${uid}|${date}`
-
-    // 1) 命中快取
-    if (dailyCache[cacheKey]) {
-      setData(dailyCache[cacheKey])
-      setLoading(false)
-      return
-    }
-
-    setLoading(true)
-    setError(null)
-
-    // 2) 如果已經有人在打同一支 API，就等同一個 Promise
-    const p =
+    const pending =
       dailyPending[cacheKey] ??
       (dailyPending[cacheKey] = fetchDailyFortune(uid, date))
 
-    p.then((res) => {
-      dailyCache[cacheKey] = res
-      setData(res)
-    })
+    pending
+      .then((res) => {
+        dailyCache[cacheKey] = res
+        setData(res)
+      })
       .catch((e) => {
-        setError(e?.message ?? "取得運勢失敗")
+        setError(e?.message ?? "讀取今日運勢失敗")
         setData(null)
       })
       .finally(() => {
-        // 清掉 pending（只清自己的 key）
-        if (dailyPending[cacheKey] === p) delete dailyPending[cacheKey]
-        setLoading(false)
+        if (dailyPending[cacheKey] === pending) {
+          delete dailyPending[cacheKey]
+        }
       })
-  }, [authLoading, member, date])
+  }, [authLoading, cacheKey, cachedData, date, uid])
 
-  if (loading) return <div>運勢計算中...</div>
-  if (error) return <div className="text-red-300">⚠️ {error}</div>
-  if (!data) return <div>尚無今日運勢</div>
+  if (authLoading) return <div>載入今日運勢中...</div>
+  if (error && !displayData) return <div className="text-red-300">{`讀取失敗：${error}`}</div>
+  if (!displayData) return <div>載入今日運勢中...</div>
 
-  // ... 你原本的 render 不用改
+  const shareText = [
+    `今日運勢 ${displayData.date}`,
+    `整體 ${displayData.score.overall}/10`,
+    `財運 ${displayData.score.wealth}/10`,
+    `工作 ${displayData.score.career}/10`,
+    extractBlock(displayData.text, "overall"),
+  ]
+    .filter(Boolean)
+    .join("\n")
+
   return (
-    <div className="px-1 text-white space-y-4">
-      <h2 className="text-xl font-semibold">📅 今日運勢</h2>
-      <div className="text-sm text-white/60">
-        {data.date}（{data.gz.year} {data.gz.month} {data.gz.day}）
+    <div className="space-y-4 px-1 text-white">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-semibold">今日運勢</h2>
+          <div className="text-sm text-white/60">
+            {displayData.date}｜{displayData.gz.year} {displayData.gz.month} {displayData.gz.day}
+          </div>
+        </div>
+
+        <FortuneShareButton
+          title={`AI 今日運勢｜${displayData.date}`}
+          text={shareText}
+          urlHash="#fortune"
+        />
       </div>
 
-      <div className="rounded-lg bg-white/5 px-3 py-3 space-y-2">
-        <div className="text-sm text-white/60 mb-1">【系統計算分項運勢】</div>
-        <ScoreRow label="整體運勢" score={data.score.overall} />
-        <ScoreRow label="財運" score={data.score.wealth} />
-        <ScoreRow label="工作運" score={data.score.career} />
-        <ScoreRow label="投資運" score={data.score.invest} />
-        <ScoreRow label="人際運" score={data.score.relation} />
+      <div className="space-y-2 rounded-lg bg-white/5 px-3 py-3">
+        <div className="mb-1 text-sm text-white/60">今日分數總覽</div>
+        <ScoreRow label="整體運勢" score={displayData.score.overall} />
+        <ScoreRow label="財運" score={displayData.score.wealth} />
+        <ScoreRow label="工作" score={displayData.score.career} />
+        <ScoreRow label="投資" score={displayData.score.invest} />
+        <ScoreRow label="感情" score={displayData.score.relation} />
       </div>
 
-      {/* ② 整體運勢文字（免費） */}
-      <Section title="整體運勢說明" defaultOpen>
-        <p className="text-sm text-white/80 leading-relaxed">
-          {extractBlock(data.text, "overall")}
+      <Section title="整體運勢解析" defaultOpen>
+        <p className="text-sm leading-relaxed text-white/80">
+          {extractBlock(displayData.text, "overall")}
         </p>
       </Section>
 
-      {/* ③ 只有 VIP 才顯示 */}
       {isPaid && (
         <>
           <Section title="財運">
-            <p className="text-sm text-white/80 leading-relaxed">
-              {extractBlock(data.text, "wealth")}
+            <p className="text-sm leading-relaxed text-white/80">
+              {extractBlock(displayData.text, "wealth")}
             </p>
           </Section>
 
-          <Section title="工作運">
-            <p className="text-sm text-white/80 leading-relaxed">
-              {extractBlock(data.text, "career")}
+          <Section title="工作">
+            <p className="text-sm leading-relaxed text-white/80">
+              {extractBlock(displayData.text, "career")}
             </p>
           </Section>
 
-          <Section title="投資建議">
-            <p className="text-sm text-white/80 leading-relaxed">
-              {extractBlock(data.text, "invest")}
+          <Section title="投資">
+            <p className="text-sm leading-relaxed text-white/80">
+              {extractBlock(displayData.text, "invest")}
             </p>
           </Section>
 
-          <Section title="人際互動">
-            <p className="text-sm text-white/80 leading-relaxed">
-              {extractBlock(data.text, "relation")}
+          <Section title="感情">
+            <p className="text-sm leading-relaxed text-white/80">
+              {extractBlock(displayData.text, "relation")}
             </p>
           </Section>
         </>
       )}
 
-      {/* 其他 Section 同理 */}
+      {isPaid && uid !== "guest" && (
+        <a
+          href={`https://www.highlight.url.tw/ai_fortune/php/lottery.php?uid=${uid}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block rounded-xl border border-amber-300/25 bg-amber-300/10 px-4 py-3 text-center text-sm font-semibold text-amber-100 transition hover:bg-amber-300/15"
+        >
+          查看今日彩券建議
+        </a>
+      )}
     </div>
   )
 }
-
-/* ===== 小元件 ===== */
 
 function Section({
   title,
@@ -134,13 +148,14 @@ function Section({
   const [open, setOpen] = useState(defaultOpen)
 
   return (
-    <div className="rounded-lg bg-white/5 px-1 py-2">
+    <div className="rounded-lg bg-white/5 px-3 py-3">
       <button
+        type="button"
         onClick={() => setOpen(!open)}
-        className="w-full flex justify-between items-center text-sm font-medium text-white/85"
+        className="flex w-full items-center justify-between text-sm font-medium text-white/85"
       >
         <span>{title}</span>
-        <span className="text-white/50">{open ? "▲" : "▼"}</span>
+        <span className="text-white/50">{open ? "收起" : "展開"}</span>
       </button>
 
       {open && <div className="mt-2 space-y-2">{children}</div>}
@@ -148,59 +163,64 @@ function Section({
   )
 }
 
-/* ===== 工具：從後端 text 擷取段落 ===== */
-
 function extractBlock(
   text?: string | null,
   key?: "overall" | "wealth" | "career" | "invest" | "relation" | "remind"
 ): string {
   if (!text || !key) return ""
 
-  const emojiMap: Record<string, string> = {
-    overall: "🌟",
-    wealth: "💰",
-    career: "💼",
-    invest: "📈",
-    relation: "🤝",
-    remind: "🎯",
+  const emojiMap: Record<string, string[]> = {
+    overall: ["🌟", "✨"],
+    wealth: ["💰", "💵"],
+    career: ["💼", "🧑‍💼"],
+    invest: ["📈", "💹"],
+    relation: ["❤️", "❤", "🤝", "💕"],
+    remind: ["🔔", "🎯"],
   }
 
-  const order = ["🌟", "💰", "💼", "📈", "🤝", "🎯"]
-  const emoji = emojiMap[key]
-  if (!emoji) return ""
+  const order = [
+    ...emojiMap.overall,
+    ...emojiMap.wealth,
+    ...emojiMap.career,
+    ...emojiMap.invest,
+    ...emojiMap.relation,
+    ...emojiMap.remind,
+  ]
+  const candidates = emojiMap[key]
+  if (!candidates?.length) return ""
 
-  const start = text.indexOf(emoji)
-  if (start === -1) return ""
+  const matched = candidates
+    .map((emoji) => ({ emoji, index: text.indexOf(emoji) }))
+    .filter((item) => item.index !== -1)
+    .sort((a, b) => a.index - b.index)[0]
 
+  if (!matched) return ""
+
+  const { emoji, index: start } = matched
   const nextIndexes = order
-    .map((e) => text.indexOf(e, start + emoji.length))
-    .filter((i) => i !== -1 && i > start)
+    .map((item) => text.indexOf(item, start + emoji.length))
+    .filter((index) => index !== -1 && index > start)
 
   const end = nextIndexes.length ? Math.min(...nextIndexes) : text.length
-
-  // 切出區塊後，把第一個 emoji 移除，再 trim
-  const block = text.slice(start, end).trim()
-  return block.replace(emoji, "").trim()
+  return text.slice(start, end).replace(emoji, "").trim()
 }
 
 function getScoreColor(v: number): string {
-  if (v >= 8.5) return "text-emerald-300"   // 強運
-  if (v >= 7)   return "text-cyan-300"      // 偏強
-  if (v >= 5.5) return "text-white/80"      // 穩定
-  if (v >= 4.5) return "text-yellow-300"    // 偏弱
-  return "text-red-400"   
+  if (v >= 8.5) return "text-emerald-300"
+  if (v >= 7) return "text-cyan-300"
+  if (v >= 5.5) return "text-white/80"
+  if (v >= 4.5) return "text-yellow-300"
+  return "text-red-400"
 }
 
-function ScoreRow({label,score,}: {label: string,score: string}) {
+function ScoreRow({ label, score }: { label: string; score: string }) {
   const value = Number(score)
   const color = getScoreColor(value)
 
   return (
     <div className="flex justify-between text-sm">
       <span className="text-white/70">{label}</span>
-      <span className={`font-semibold ${color}`}>
-        {value} / 10
-      </span>
+      <span className={`font-semibold ${color}`}>{value} / 10</span>
     </div>
   )
 }

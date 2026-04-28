@@ -1,18 +1,18 @@
 "use client"
-import { useAuth } from '@/contexts/AuthContext'
-import React, { useEffect, useState } from 'react'
-import { useFortuneData }from "@/components/data/HomePage"
-/* =========================
-   Types / Constants
-========================= */
-type TabKey = "wuxing" | "fortune" | "calendar" | "month" | "profile"
+
+import React, { useState } from "react"
+import { useAuth } from "@/contexts/AuthContext"
+import { useFortuneData } from "@/components/data/HomePage"
+
 type WuxingKey = "木" | "火" | "土" | "金" | "水"
+
 type WuxingItem = {
   key: WuxingKey
   value: number
 }
 
 const WUXING_LIST: WuxingKey[] = ["木", "火", "土", "金", "水"]
+
 const WUXING_COLOR: Record<WuxingKey, string> = {
   木: "bg-green-400",
   火: "bg-red-400",
@@ -21,25 +21,17 @@ const WUXING_COLOR: Record<WuxingKey, string> = {
   水: "bg-blue-400",
 }
 
-type ProfiledHintProps = {
-  title: string
-  actionText: string
-  onChange: () => void
+function trendArrow(direction: "up" | "down" | "flat") {
+  if (direction === "up") return "↗"
+  if (direction === "down") return "↘"
+  return "→"
 }
 
-/* =========================
-   Helpers
-========================= */
-
-function trendArrow(dir: "up" | "down" | "flat") {
-  return dir === "up" ? "↑" : dir === "down" ? "↓" : "→"
-}
-
-function statusLabel(v: number) {
-  if (v >= 4) return { text: "偏旺", tone: "good" as const }
-  if (v === 3) return { text: "平衡", tone: "neutral" as const }
-  if (v === 2) return { text: "偏低", tone: "warn" as const }
-  return { text: "弱", tone: "danger" as const }
+function statusLabel(value: number) {
+  if (value >= 4) return { text: "旺", tone: "good" as const }
+  if (value === 3) return { text: "平穩", tone: "neutral" as const }
+  if (value === 2) return { text: "偏弱", tone: "warn" as const }
+  return { text: "低", tone: "danger" as const }
 }
 
 function toneClass(tone: "good" | "neutral" | "warn" | "danger") {
@@ -51,62 +43,41 @@ function toneClass(tone: "good" | "neutral" | "warn" | "danger") {
   }[tone]
 }
 
-/* =========================
-   Main Page
-========================= */
-
 export default function FortuneHome() {
-  const { data, isLoading, error } = useFortuneData()
-  const { member, loading: authLoading, lineUid} = useAuth()
+  const { data, isLoading } = useFortuneData()
+  const { member, loading: authLoading, lineUid, openLogin } = useAuth()
   const [showTrendDetail, setShowTrendDetail] = useState(false)
-  const [activeWuxing, setActiveWuxing] = useState<WuxingKey>(WUXING_LIST[0])
+  const [activeWuxing, setActiveWuxing] = useState<WuxingKey | null>(null)
 
-  useEffect(() => {
-    if (data?.today?.dominant) {
-      setActiveWuxing(data.today.dominant)
-    }
-  }, [data])
-
-    if (authLoading) {
-    return (
-      <div className="px-4 py-4 text-white">
-        登入驗證中…
-      </div>
-    )
+  if (authLoading) {
+    return <div className="px-4 py-4 text-white">登入狀態載入中...</div>
   }
-  
+
   if (isLoading) {
-    return (
-      <div className="px-4 py-4 text-white">
-        運勢計算中…
-      </div>
-    )
+    return <div className="px-4 py-4 text-white">運勢資料載入中...</div>
   }
 
-  if (!data || !data.today) {
-    return (
-      <div className="px-4 py-4 text-white">
-        今日運勢尚未產生
-      </div>
-    )
+  if (!data?.today) {
+    return <div className="px-4 py-4 text-white">目前沒有可顯示的五行資料</div>
   }
+
+  const currentWuxing = activeWuxing ?? (data.today.dominant as WuxingKey)
 
   return (
-    <div className="px-4 py-4 text-white space-y-4">
-      {/* ===== 今日五行（所有人可看） ===== */}
+    <div className="space-y-4 px-4 py-4 text-white">
       <SectionCard>
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold">📅 今日五行</h2>
+            <h2 className="text-lg font-semibold">今日五行能量</h2>
             <p className="text-sm text-white/60">
-              {data.today.date}｜{data.today.ganzhi}
+              {data.today.date} | {data.today.ganzhi}
             </p>
           </div>
 
           <div className="text-right text-sm text-white/70">
             <div>趨勢 {trendArrow(data.today.trendDirection)}</div>
             <div>
-              主導 <span className="text-white font-medium">{data.today.dominant}</span>
+              主運 <span className="font-medium text-white">{data.today.dominant}</span>
             </div>
           </div>
         </div>
@@ -116,48 +87,37 @@ export default function FortuneHome() {
         </div>
 
         <div className="mt-4 space-y-3">
-          {data.today.wuxing.map((w: WuxingItem) => (
-            <WuxingRow key={w.key} label={w.key} value={w.value} />
+          {data.today.wuxing.map((item: WuxingItem) => (
+            <WuxingRow key={item.key} label={item.key} value={item.value} />
           ))}
         </div>
       </SectionCard>
 
-      {/* ===== 登入後才可看 ===== */}
       {member == null ? (
-        <LoginHint title="登入後可查看 7 日五行趨勢" lineUid={lineUid ?? ""} />
-      ) : member.user_fortune_id === -1 ? (
-        // 2️⃣ 已登入但沒命盤
-          <button
-            onClick={() => setShowTrendDetail((v) => !v)}
-            className="w-full rounded-lg border border-white/15 py-2 text-sm text-white/75"
-          >
-            {showTrendDetail ? "收合 7 日趨勢" : "查看 7 日趨勢 →"}
-          </button>
+        <LoginHint
+          title="註冊或登入後可查看 7 日五行趨勢"
+          lineUid={lineUid ?? ""}
+          onOpenLogin={openLogin}
+        />
       ) : (
         <>
           <button
-            onClick={() => setShowTrendDetail((v) => !v)}
+            type="button"
+            onClick={() => setShowTrendDetail((value) => !value)}
             className="w-full rounded-lg border border-white/15 py-2 text-sm text-white/75"
           >
-            {showTrendDetail ? "收合 7 日趨勢" : "查看 7 日趨勢 →"}
+            {showTrendDetail ? "收起 7 日趨勢" : "查看 7 日趨勢"}
           </button>
 
           {showTrendDetail && (
             <SectionCard>
-              {/* ⭐ 五行 Segmented Control */}
-              <WuxingSegmented
-                value={activeWuxing}
-                onChange={setActiveWuxing}
-              />
+              <WuxingSegmented value={currentWuxing} onChange={setActiveWuxing} />
 
-              {/* ⭐ 對應的 7 日 BAR */}
               <div className="mt-4">
-                {activeWuxing && (
-                  <SevenDayBar
-                    wuxing={activeWuxing}
-                    series={data.today.trend7ByWuxing[activeWuxing]}
-                  />
-                )}
+                <SevenDayBar
+                  wuxing={currentWuxing}
+                  series={data.today.trend7ByWuxing[currentWuxing]}
+                />
               </div>
             </SectionCard>
           )}
@@ -167,26 +127,24 @@ export default function FortuneHome() {
   )
 }
 
-/* =========================
-   UI Components
-========================= */
-
 function SectionCard({ children }: { children: React.ReactNode }) {
   return <div className="rounded-2xl bg-white/5 px-4 py-4">{children}</div>
 }
 
 function WuxingRow({ label, value }: { label: WuxingKey; value: number }) {
-  const s = statusLabel(value)
+  const status = statusLabel(value)
+
   return (
     <div>
-      <div className="flex justify-between text-sm mb-1">
+      <div className="mb-1 flex justify-between text-sm">
         <div className="flex gap-2">
           <span>{label}</span>
-          <span className={`text-xs ${toneClass(s.tone)}`}>{s.text}</span>
+          <span className={`text-xs ${toneClass(status.tone)}`}>{status.text}</span>
         </div>
         <span className="text-xs text-white/60">{value}/5</span>
       </div>
-      <div className="h-2 bg-white/15 rounded">
+
+      <div className="h-2 rounded bg-white/15">
         <div
           className={`h-2 rounded ${WUXING_COLOR[label]}`}
           style={{ width: `${value * 20}%` }}
@@ -203,70 +161,52 @@ function SevenDayBar({
   wuxing: WuxingKey
   series: number[]
 }) {
-  const MAX = 5
-  const CHART_HEIGHT = 112 // 對應 h-28
+  const max = 5
+  const chartHeight = 112
 
   return (
     <div className="rounded-2xl bg-white/5 px-4 py-4">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="text-sm font-medium">
-          📊 {wuxing}・近 7 日能量
-        </div>
+      <div className="mb-3 flex items-center justify-between">
+        <div className="text-sm font-medium">{wuxing} 未來 7 日走勢</div>
       </div>
 
-      {/* Chart */}
       <div className="relative h-28">
-        {/* 背景刻度 */}
-        <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-          {[5, 4, 3, 2, 1, 0].map((l) => (
-            <div key={l} className="flex items-center gap-2">
-              <span className="w-4 text-[10px] text-white/30">
-                {l}
-              </span>
+        <div className="pointer-events-none absolute inset-0 flex flex-col justify-between">
+          {[5, 4, 3, 2, 1, 0].map((label) => (
+            <div key={label} className="flex items-center gap-2">
+              <span className="w-4 text-[10px] text-white/30">{label}</span>
               <div className="flex-1 border-t border-white/10" />
             </div>
           ))}
         </div>
 
-        {/* BAR */}
-        <div className="absolute inset-0 ml-6 flex items-end gap-2 z-10">
-          {series.map((v, i) => {
-            const isToday = i === 0
-            const barHeight =
-              v === 0 ? 3 : (v / MAX) * CHART_HEIGHT
+        <div className="absolute inset-0 z-10 ml-6 flex items-end gap-2">
+          {series.map((value, index) => {
+            const isToday = index === 0
+            const barHeight = value === 0 ? 3 : (value / max) * chartHeight
 
             return (
               <div
-                key={i}
-                className="flex-1 flex flex-col items-center justify-end"
+                key={`${wuxing}-${index}`}
+                className="flex flex-1 flex-col items-center justify-end"
               >
-                {/* BAR 本體 */}
                 <div
-                  className={`w-full rounded-md ${
-                    WUXING_COLOR[wuxing]
-                  } ${
-                    isToday
-                      ? "opacity-100 ring-2 ring-white/80"
-                      : "opacity-90"
+                  className={`w-full rounded-md ${WUXING_COLOR[wuxing]} ${
+                    isToday ? "opacity-100 ring-2 ring-white/80" : "opacity-90"
                   }`}
-                  style={{
-                    height: `${barHeight}px`,
-                  }}
+                  style={{ height: `${barHeight}px` }}
                 />
 
-                {/* value */}
                 <div
                   className={`mt-1 text-[10px] ${
                     isToday ? "text-white" : "text-white/50"
                   }`}
                 >
-                  {v}
+                  {value}
                 </div>
 
-                {/* day */}
                 <div className="text-[10px] text-white/40">
-                  {isToday ? "今" : `+${i}`}
+                  {isToday ? "今日" : `+${index}`}
                 </div>
               </div>
             )
@@ -274,53 +214,44 @@ function SevenDayBar({
         </div>
       </div>
 
-      {/* Hint */}
       <div className="mt-3 text-xs text-white/50">
-        今日 {wuxing} 能量為{" "}
-        <span className="text-white font-medium">
-          {series[0]}
-        </span>{" "}
-        / 5
+        今日 {wuxing} 分數為 <span className="font-medium text-white">{series[0] ?? 0}</span> / 5
       </div>
     </div>
   )
 }
 
-function LoginHint({ title, lineUid, }: { title: string ,lineUid: string }) {
+function LoginHint({
+  title,
+  lineUid,
+  onOpenLogin,
+}: {
+  title: string
+  lineUid: string
+  onOpenLogin: () => void
+}) {
   return (
     <div className="rounded-2xl bg-white/5 px-4 py-4 text-center">
-      <div className="mb-2 text-white/80">🔒 {title}</div>
+      <div className="mb-3 text-white/80">{title}</div>
 
-      <a
-        href={`https://www.highlight.url.tw/ai_fortune/register.php?uid=${lineUid}`}
-        // href="https://line.me/R/ti/p/@306rtpqm"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-block rounded-lg bg-white/10 px-4 py-2 text-sm"
-      >
-        登入 / 註冊 →
-      </a>
-    </div>
-  )
-}
+      <div className="flex items-center justify-center gap-3">
+        <a
+          href={`https://www.highlight.url.tw/ai_fortune/register.php?uid=${lineUid}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex rounded-lg bg-white/10 px-4 py-2 text-sm transition hover:bg-white/15"
+        >
+          註冊
+        </a>
 
-function ProfiledHint({
-  title,
-  actionText,
-  onChange,
-}: ProfiledHintProps) {
-  return (
-    <div className="rounded-2xl bg-white/5 px-4 py-6 text-center">
-      <div className="mb-3 text-white/80 text-sm">
-        🔒 {title}
+        <button
+          type="button"
+          onClick={onOpenLogin}
+          className="inline-flex rounded-lg border border-white/15 bg-white/5 px-4 py-2 text-sm transition hover:bg-white/10"
+        >
+          登入
+        </button>
       </div>
-
-      <button
-        onClick={onChange}   // ✅ 這裡其實可以更簡潔
-        className="inline-block rounded-lg bg-white/10 px-4 py-2 text-sm hover:bg-white/20 transition"
-      >
-        {actionText}
-      </button>
     </div>
   )
 }
@@ -330,18 +261,15 @@ function WuxingSegmented({
   onChange,
 }: {
   value: WuxingKey
-  onChange: (v: WuxingKey) => void
+  onChange: (nextValue: WuxingKey) => void
 }) {
   const index = WUXING_LIST.indexOf(value)
   const width = 100 / WUXING_LIST.length
 
   return (
     <div className="relative rounded-full bg-white/10 p-1">
-      {/* sliding indicator */}
       <div
-        className={`absolute top-1 bottom-1 rounded-full transition-all duration-300 ease-out ${
-          WUXING_COLOR[value]
-        }`}
+        className={`absolute bottom-1 top-1 rounded-full transition-all duration-300 ease-out ${WUXING_COLOR[value]}`}
         style={{
           width: `${width}%`,
           left: `${index * width}%`,
@@ -349,17 +277,16 @@ function WuxingSegmented({
       />
 
       <div className="relative z-10 flex">
-        {WUXING_LIST.map((k) => (
+        {WUXING_LIST.map((key) => (
           <button
-            key={k}
-            onClick={() => onChange(k)}
+            key={key}
+            type="button"
+            onClick={() => onChange(key)}
             className={`flex-1 py-1.5 text-sm font-medium transition ${
-              value === k
-                ? "text-black"
-                : "text-white/70 hover:text-white"
+              value === key ? "text-black" : "text-white/70 hover:text-white"
             }`}
           >
-            {k}
+            {key}
           </button>
         ))}
       </div>

@@ -1,6 +1,7 @@
 "use client"
 
-import React, { useEffect, useMemo, useState, useRef } from "react"
+import React, { useEffect, useMemo, useState } from "react"
+import FortuneShareButton from "@/components/common/FortuneShareButton"
 import { useAuth } from "@/contexts/AuthContext"
 import {
   fetchMonthFortune,
@@ -10,15 +11,15 @@ import {
   fetchYearFortune,
   type YearFortune,
 } from "@/components/data/YearView"
-export const monthCache: Record<string, {
-  monthFortune: MonthFortune
-  monthData: Record<string, MonthFortune>
-}> = {}
-export const yearCache: Record<string, YearFortune> = {}
 
-/* =========================
-   日期工具
-========================= */
+export const monthCache: Record<
+  string,
+  {
+    monthFortune: MonthFortune
+    monthData: Record<string, MonthFortune>
+  }
+> = {}
+export const yearCache: Record<string, YearFortune> = {}
 
 const WEEK_LABELS = ["日", "一", "二", "三", "四", "五", "六"]
 
@@ -29,107 +30,91 @@ const toISO = (d: Date) =>
 const startOfMonth = (y: number, m: number) => new Date(y, m, 1)
 const addMonths = (d: Date, n: number) =>
   new Date(d.getFullYear(), d.getMonth() + n, 1)
-/* =========================
-   UI helpers
-========================= */
 
 function scoreTone(v: number) {
-  if (v >= 8.5) return "text-emerald-300"   // 強運
-  if (v >= 7)   return "text-cyan-300"      // 偏強
-  if (v >= 5.5) return "text-white/80"      // 穩定
-  if (v >= 4.5) return "text-yellow-300"    // 偏弱
-  return "text-red-400"                     // 低潮
+  if (v >= 8.5) return "text-emerald-300"
+  if (v >= 7) return "text-cyan-300"
+  if (v >= 5.5) return "text-white/80"
+  if (v >= 4.5) return "text-yellow-300"
+  return "text-red-400"
 }
 
 function dotTone(v: number) {
-  if (v >= 8.5) return "bg-emerald-400"   // 強運
-  if (v >= 7)   return "bg-cyan-400"      // 偏強
-  if (v >= 5.5) return "bg-white/50"      // 穩定
-  if (v >= 4.5) return "bg-yellow-400"    // 偏弱
-  return "bg-red-400"                     // 低潮
+  if (v >= 8.5) return "bg-emerald-400"
+  if (v >= 7) return "bg-cyan-400"
+  if (v >= 5.5) return "bg-white/50"
+  if (v >= 4.5) return "bg-yellow-400"
+  return "bg-red-400"
 }
 
 function renderLuckyColor(color: string) {
-  return (
-    <span className={colorByText(color)}>
-      {color}
-    </span>
-  )
+  return <span className={colorByText(color)}>{color}</span>
 }
 
 function renderLuckyStone(stone: string) {
-  return (
-    <span className={colorByText(stone)}>
-      {stone}
-    </span>
-  )
+  return <span className={colorByText(stone)}>{stone}</span>
 }
 
 function colorByText(text: string) {
-  if (text.includes("紅")) return "text-red-400"
-  if (text.includes("黃")) return "text-yellow-400"
-  if (text.includes("金")) return "text-amber-300"
+  if (text.includes("紅") || text.includes("赤")) return "text-red-400"
+  if (text.includes("黃") || text.includes("金")) return "text-yellow-400"
+  if (text.includes("橙")) return "text-amber-300"
   if (text.includes("白")) return "text-white"
   if (text.includes("綠")) return "text-emerald-400"
   if (text.includes("藍")) return "text-sky-400"
   if (text.includes("紫")) return "text-purple-400"
-  if (text.includes("黑")) return "text-neutral-400"
+  if (text.includes("灰") || text.includes("黑")) return "text-neutral-300"
 
   return "text-white"
 }
 
-/* =========================
-   Section（可折疊）
-========================= */
-
 function Section({
   title,
   subtitle,
+  action,
   children,
   defaultOpen = false,
 }: {
   title: React.ReactNode
   subtitle?: React.ReactNode
+  action?: React.ReactNode
   children: React.ReactNode
   defaultOpen?: boolean
 }) {
   const [open, setOpen] = useState(defaultOpen)
 
   return (
-    <div className="rounded-2xl bg-white/5 px-1 py-2">
-      <button
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-start justify-between mb-3 text-left"
-      >
-        <div>
-          <div className="text-lg font-semibold text-white">
-            {title}
+    <div className="rounded-2xl bg-white/5 px-3 py-3">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-lg font-semibold text-white">{title}</div>
+            {action}
           </div>
-          {subtitle && (
-            <div className="text-xs text-white/50 mt-0.5">
-              {subtitle}
-            </div>
-          )}
+          {subtitle && <div className="mt-0.5 text-xs text-white/50">{subtitle}</div>}
         </div>
-        <div className="text-white/50 text-sm mt-1">
-          {open ? "▲" : "▼"}
-        </div>
-      </button>
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className="mt-1 shrink-0 text-sm text-white/50"
+        >
+          {open ? "收起" : "展開"}
+        </button>
+      </div>
 
       {open && <div className="space-y-3">{children}</div>}
     </div>
   )
 }
 
-/* =========================
-   Page
-========================= */
-
 export default function MonthView() {
-  const { member, loading: authLoading, isPaid, openLogin, } = useAuth()
+  const { member, loading: authLoading, isPaid, openLogin } = useAuth()
   const [yearFortune, setYearFortune] = useState<YearFortune | null>(null)
-  const uid = member ? String(member.member_id) : "guest"
+  const [monthFortune, setMonthFortune] = useState<MonthFortune | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [showPaywall, setShowPaywall] = useState(false)
 
+  const uid = member ? String(member.member_id) : "guest"
   const today = useMemo(() => {
     const d = new Date()
     d.setHours(0, 0, 0, 0)
@@ -141,77 +126,55 @@ export default function MonthView() {
   )
   const [selectedISO, setSelectedISO] = useState(toISO(today))
 
-  const [monthFortune, setMonthFortune] = useState<MonthFortune | null>(null)
-  const [monthData, setMonthData] = useState<Record<string, MonthFortune>>({})
-
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [showPaywall, setShowPaywall] = useState(false)
-
   const year = cursorMonth.getFullYear()
   const month = cursorMonth.getMonth()
   const ym = `${year}-${pad2(month + 1)}`
-  /* ===== 抓 API ===== */
+  const monthKey = `${uid}-${ym}`
+  const yearKey = `${uid}-${year}`
+  const cachedMonth = monthCache[monthKey]?.monthFortune ?? null
+  const cachedYear = yearCache[yearKey] ?? null
+  const displayMonth = monthFortune ?? cachedMonth
+  const displayYear = yearFortune ?? cachedYear
+
   useEffect(() => {
     if (authLoading) return
-
-    const monthKey = `${uid}-${ym}`
-    const yearKey = `${uid}-${year}`
-
-    const cachedMonth = monthCache[monthKey]
-    const cachedYear = yearCache[yearKey]
-
-    if (cachedMonth && cachedYear) {
-      setMonthFortune(cachedMonth.monthFortune)
-      setMonthData(cachedMonth.monthData)
-      setYearFortune(cachedYear)
-      setLoading(false)
-      return
-    }
-
-    setLoading(true)
+    if (cachedMonth && cachedYear) return
 
     Promise.all([
-      cachedMonth ? null : fetchMonthFortune(uid, ym),
-      cachedYear ? null : fetchYearFortune(uid, String(year)),
+      cachedMonth ? Promise.resolve(null) : fetchMonthFortune(uid, ym),
+      cachedYear ? Promise.resolve(null) : fetchYearFortune(uid, String(year)),
     ])
       .then(([m, y]) => {
         if (m) {
           setMonthFortune(m)
           monthCache[monthKey] = { monthFortune: m, monthData: {} }
         }
+
         if (y) {
           setYearFortune(y)
           yearCache[yearKey] = y
         }
       })
-      .catch(() => setError("資料載入失敗"))
-      .finally(() => setLoading(false))
-  }, [authLoading, uid, ym, year])
+      .catch(() => setError("月運勢資料載入失敗"))
+  }, [authLoading, cachedMonth, cachedYear, monthKey, uid, ym, year, yearKey])
 
   const guardedChangeMonth = (fn: () => void) => {
     if (!member) {
       openLogin()
       return
     }
+
     if (!isPaid) {
       setShowPaywall(true)
       return
     }
+
     fn()
   }
 
-  const onPrevMonth = () =>
-    guardedChangeMonth(() =>
-      setCursorMonth((d) => addMonths(d, -1))
-    )
+  const onPrevMonth = () => guardedChangeMonth(() => setCursorMonth((d) => addMonths(d, -1)))
+  const onNextMonth = () => guardedChangeMonth(() => setCursorMonth((d) => addMonths(d, 1)))
 
-  const onNextMonth = () =>
-    guardedChangeMonth(() =>
-      setCursorMonth((d) => addMonths(d, 1))
-    )
-
-  /* ===== 日曆格子 ===== */
   const cells = useMemo(() => {
     const first = startOfMonth(year, month)
     const firstWeekday = first.getDay()
@@ -227,244 +190,264 @@ export default function MonthView() {
     return arr
   }, [year, month])
 
-  /* ===== Render ===== */
-  if (loading && !monthFortune) {
-    return <div className="px-4 py-6 text-white">載入中…</div>
-  }
+  const monthShareText = displayMonth
+    ? [
+        `${displayMonth.month} 月運勢`,
+        `整體 ${displayMonth.scores.overall}`,
+        `財運 ${displayMonth.scores.wealth}`,
+        `工作 ${displayMonth.scores.career}`,
+        displayMonth.ai.overall,
+      ]
+        .filter(Boolean)
+        .join("\n")
+    : ""
 
-  if (error) {
+  const yearShareText = displayYear
+    ? [
+        `${displayYear.year} 年運勢`,
+        `年度主軸：${displayYear.yearType}`,
+        `整體 ${displayYear.scores.overall}`,
+        `財運 ${displayYear.scores.wealth}`,
+        displayYear.ai.overall,
+      ]
+        .filter(Boolean)
+        .join("\n")
+    : ""
+
+  if (authLoading) return <div className="px-4 py-6 text-white">載入月運勢中...</div>
+
+  if (error && !displayMonth) {
     return <div className="px-4 py-6 text-red-300">{error}</div>
   }
 
+  if (!displayMonth) return <div className="px-4 py-6 text-white">載入月運勢中...</div>
+
   return (
-    <div className="px-1 py-1 text-white space-y-4">
-      {/* 月份切換 */}
-      <div className="flex items-center justify-between mb-2">
-        <button onClick={onPrevMonth}>◀</button>
+    <div className="space-y-4 px-1 py-1 text-white">
+      <div className="mb-2 flex items-center justify-between">
+        <button type="button" onClick={onPrevMonth}>上月</button>
         <div className="min-w-[80px] text-center text-sm">
           {year}/{pad2(month + 1)}
         </div>
-        <button onClick={onNextMonth}>▶</button>
+        <button type="button" onClick={onNextMonth}>下月</button>
       </div>
 
-      {monthFortune && (
-        <Section
-          title={`📅 ${monthFortune.month} 月運勢`}
-          defaultOpen
-        >
-          {/* ===== 分數（5 個一排，方塊） ===== */}
-          <div className="grid grid-cols-5 gap-2 text-center">
-            {([
-              ["整體", monthFortune.scores.overall, false],
-              ["工作", monthFortune.scores.career, false],
-              ["人際", monthFortune.scores.relation, false],
-              ["財運", monthFortune.scores.wealth, false],
-              ["投資", monthFortune.scores.invest, false],
-            ] as const).map(([label, value, showDot]) => (
-              <div
-                key={label}
-                className="rounded-xl bg-white/5 px-2 py-2"
+      <div className="rounded-2xl bg-white/5 px-3 py-3">
+        <div className="mb-2 grid grid-cols-7 gap-2 text-center text-xs text-white/45">
+          {WEEK_LABELS.map((label) => (
+            <div key={label}>{label}</div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-7 gap-2">
+          {cells.map((cell, index) => {
+            const isSelected = cell.iso === selectedISO
+            return (
+              <button
+                key={cell.iso ?? `empty-${index}`}
+                type="button"
+                disabled={!cell.iso}
+                onClick={() => cell.iso && setSelectedISO(cell.iso)}
+                className={`min-h-11 rounded-lg border px-2 py-2 text-center text-sm transition ${
+                  cell.iso
+                    ? isSelected
+                      ? "border-cyan-300/50 bg-cyan-300/15 text-white"
+                      : "border-white/8 bg-white/5 text-white/75 hover:bg-white/10"
+                    : "border-transparent bg-transparent"
+                }`}
               >
-                <div className="flex items-center justify-center gap-1 text-xs text-white/60">
-                  {showDot && (
-                    <span className={`w-1.5 h-1.5 rounded-full ${dotTone(value)}`} />
-                  )}
-                  {label}
-                </div>
+                {cell.date?.getDate() ?? ""}
+              </button>
+            )
+          })}
+        </div>
+      </div>
 
-                <div className={`mt-1 text-lg font-semibold ${scoreTone(value)}`}>
-                  {value}
-                </div>
+      <Section
+        title={`${displayMonth.month} 月運勢`}
+        action={
+          <FortuneShareButton
+            title={`AI 月運勢｜${displayMonth.month}`}
+            text={monthShareText}
+            urlHash="#month"
+          />
+        }
+        defaultOpen
+      >
+        <div className="grid grid-cols-5 gap-2 text-center">
+          {([
+            ["整體", displayMonth.scores.overall, false],
+            ["工作", displayMonth.scores.career, false],
+            ["人際", displayMonth.scores.relation, false],
+            ["財運", displayMonth.scores.wealth, false],
+            ["投資", displayMonth.scores.invest, false],
+          ] as const).map(([label, value, showDot]) => (
+            <div key={label} className="rounded-xl bg-white/5 px-2 py-2">
+              <div className="flex items-center justify-center gap-1 text-xs text-white/60">
+                {showDot && <span className={`h-1.5 w-1.5 rounded-full ${dotTone(value)}`} />}
+                {label}
               </div>
-            ))}
-          </div>
 
-          {/* ===== 本月十神（月運勢定位） ===== */}
-          {monthFortune.month_shishen && (
-            <div className="mt-3 rounded-xl bg-white/5 px-3 py-3 text-sm">
-              <div className="mb-1 flex items-center gap-1 text-xs text-white/50">
-                🧭 本月主題
-              </div>
-
-              <div className="flex items-start gap-2">
-                <span className="shrink-0 rounded-md bg-yellow-400/20 px-2 py-0.5 text-xs font-semibold text-yellow-300">
-                  {monthFortune.month_shishen.main.key}
-                </span>
-                <span className="text-white/80 leading-relaxed">
-                  {monthFortune.month_shishen.main.desc}
-                </span>
-              </div>
-
-              {monthFortune.month_shishen.sub && (
-                <div className="mt-2 text-xs text-white/60">
-                  輔助：
-                  <span className="ml-1 font-semibold text-white/70">
-                    {monthFortune.month_shishen.sub.key}
-                  </span>
-                  ｜{monthFortune.month_shishen.sub.desc}
-                </div>
-              )}
+              <div className={`mt-1 text-lg font-semibold ${scoreTone(value)}`}>{value}</div>
             </div>
-          )}
+          ))}
+        </div>
 
-          {/* ===== Lucky（字體放大） ===== */}
-          <div className="mt-3 rounded-xl border border-white/10 px-3 py-2 text-sm text-center text-white/80">
-            <span className="text-white/60">幸運：</span>
+        {displayMonth.month_shishen && (
+          <div className="mt-3 rounded-xl bg-white/5 px-3 py-3 text-sm">
+            <div className="mb-1 text-xs text-white/50">本月十神重點</div>
 
-            <span className="font-semibold">
-              {renderLuckyColor(monthFortune.lucky.color)}
-            </span>
+            <div className="flex items-start gap-2">
+              <span className="shrink-0 rounded-md bg-yellow-400/20 px-2 py-0.5 text-xs font-semibold text-yellow-300">
+                {displayMonth.month_shishen.main.key}
+              </span>
+              <span className="leading-relaxed text-white/80">
+                {displayMonth.month_shishen.main.desc}
+              </span>
+            </div>
 
-            <span className="mx-1 text-white/40">｜</span>
-
-            <span className="font-semibold">
-              {renderLuckyStone(monthFortune.lucky.stone)}
-            </span>
-
-            <span className="mx-1 text-white/40">｜</span>
-
-            <span className="text-white/60">方位：</span>
-            <span className="font-semibold">
-              {monthFortune.lucky.direction}
-            </span>
+            {displayMonth.month_shishen.sub && (
+              <div className="mt-2 text-xs text-white/60">
+                補充說明：
+                <span className="ml-1 font-semibold text-white/70">
+                  {displayMonth.month_shishen.sub.key}
+                </span>
+                ｜{displayMonth.month_shishen.sub.desc}
+              </div>
+            )}
           </div>
+        )}
 
-          {/* ===== AI 解析 ===== */}
-          {isPaid && (
-          <Section title="🔍 本月解析" defaultOpen={false}>
+        <div className="mt-3 rounded-xl border border-white/10 px-3 py-2 text-center text-sm text-white/80">
+          <span className="text-white/60">幸運元素：</span>
+          <span className="font-semibold">{renderLuckyColor(displayMonth.lucky.color)}</span>
+          <span className="mx-1 text-white/40">｜</span>
+          <span className="font-semibold">{renderLuckyStone(displayMonth.lucky.stone)}</span>
+          <span className="mx-1 text-white/40">｜</span>
+          <span className="text-white/60">方位：</span>
+          <span className="font-semibold">{displayMonth.lucky.direction}</span>
+        </div>
+
+        {isPaid && (
+          <Section title="AI 月運解析">
             <div className="space-y-2 text-sm leading-relaxed">
-              <div className="bg-white/5 rounded-lg px-3 py-2">
-                <b>整體：</b>{monthFortune.ai.overall}
+              <div className="rounded-lg bg-white/5 px-3 py-2">
+                <b>整體：</b>
+                {displayMonth.ai.overall}
               </div>
 
-              {monthFortune.ai.wealth && (
-                <div className="bg-white/5 rounded-lg px-3 py-2">
-                  <b>財運：</b>{monthFortune.ai.wealth}
+              {displayMonth.ai.wealth && (
+                <div className="rounded-lg bg-white/5 px-3 py-2">
+                  <b>財運：</b>
+                  {displayMonth.ai.wealth}
                 </div>
               )}
 
-              {monthFortune.ai.career && (
-                <div className="bg-white/5 rounded-lg px-3 py-2">
-                  <b>工作：</b>{monthFortune.ai.career}
+              {displayMonth.ai.career && (
+                <div className="rounded-lg bg-white/5 px-3 py-2">
+                  <b>工作：</b>
+                  {displayMonth.ai.career}
                 </div>
               )}
 
-              {monthFortune.ai.invest && (
-                <div className="bg-white/5 rounded-lg px-3 py-2">
-                  <b>投資：</b>{monthFortune.ai.invest}
+              {displayMonth.ai.invest && (
+                <div className="rounded-lg bg-white/5 px-3 py-2">
+                  <b>投資：</b>
+                  {displayMonth.ai.invest}
                 </div>
               )}
             </div>
           </Section>
-          )}
-        </Section>
-      )}
+        )}
+      </Section>
 
-
-      {/* =====================
-          年運勢
-      ===================== */}
-      {yearFortune && (
+      {displayYear && (
         <Section
-          title={`🌟 ${yearFortune.year} 年運勢`}
-          subtitle={
-            <span className="text-sm font-semibold text-white/80">
-              年度主軸：{yearFortune.yearType}
-            </span>
+          title={`${displayYear.year} 年運勢`}
+          action={
+            <FortuneShareButton
+              title={`AI 年運勢｜${displayYear.year}`}
+              text={yearShareText}
+              urlHash="#month"
+            />
           }
+          subtitle={<span className="text-sm font-semibold text-white/80">{`年度主軸：${displayYear.yearType}`}</span>}
         >
-          {/* ===== 分數（5 個一排，方塊） ===== */}
           <div className="grid grid-cols-5 gap-2 text-center">
             {([
-              ["整體", yearFortune.scores.overall, false],
-              ["工作", yearFortune.scores.career, false],
-              ["人際", yearFortune.scores.relation, false],
-              ["財運", yearFortune.scores.wealth, false],
-              ["投資", yearFortune.scores.invest, false],
+              ["整體", displayYear.scores.overall, false],
+              ["工作", displayYear.scores.career, false],
+              ["人際", displayYear.scores.relation, false],
+              ["財運", displayYear.scores.wealth, false],
+              ["投資", displayYear.scores.invest, false],
             ] as const).map(([label, value, showDot]) => (
-              <div
-                key={label}
-                className="rounded-xl bg-white/5 px-2 py-2"
-              >
+              <div key={label} className="rounded-xl bg-white/5 px-2 py-2">
                 <div className="flex items-center justify-center gap-1 text-xs text-white/60">
-                  {showDot && (
-                    <span className={`w-1.5 h-1.5 rounded-full ${dotTone(value)}`} />
-                  )}
+                  {showDot && <span className={`h-1.5 w-1.5 rounded-full ${dotTone(value)}`} />}
                   {label}
                 </div>
 
-                <div className={`mt-1 text-lg font-semibold ${scoreTone(value)}`}>
-                  {value}
-                </div>
+                <div className={`mt-1 text-lg font-semibold ${scoreTone(value)}`}>{value}</div>
               </div>
             ))}
           </div>
 
-          {/* Lucky（手機友善） */}
-          <div className="mt-3 rounded-xl bg-white/10 px-3 py-3 text-sm text-center">
-            <span className="text-white/60">幸運：</span>
-
-            <span className="font-semibold">
-              {renderLuckyColor(yearFortune.lucky.color)}
-            </span>
-
-            <span className="mx-1 text-white/40"> ｜ </span>
-
-            <span className="font-semibold">
-              {renderLuckyStone(yearFortune.lucky.stone)}
-            </span>
-
-            <span className="mx-1 text-white/40"> ｜ </span>
-
+          <div className="mt-3 rounded-xl bg-white/10 px-3 py-3 text-center text-sm">
+            <span className="text-white/60">幸運元素：</span>
+            <span className="font-semibold">{renderLuckyColor(displayYear.lucky.color)}</span>
+            <span className="mx-1 text-white/40">｜</span>
+            <span className="font-semibold">{renderLuckyStone(displayYear.lucky.stone)}</span>
+            <span className="mx-1 text-white/40">｜</span>
             <span className="text-white/60">方位：</span>
-            <span className="font-semibold">
-              {yearFortune.lucky.direction}
-            </span>
+            <span className="font-semibold">{displayYear.lucky.direction}</span>
           </div>
 
-          {/* AI 分析 */}
           {isPaid && (
-          <Section title="🔍 年度解析" defaultOpen={false}>
-            <div className="space-y-2 text-sm leading-relaxed">
-              <div className="bg-white/5 rounded-lg px-3 py-2">
-                <b>整體：</b>{yearFortune.ai.overall}
+            <Section title="AI 年運解析">
+              <div className="space-y-2 text-sm leading-relaxed">
+                <div className="rounded-lg bg-white/5 px-3 py-2">
+                  <b>整體：</b>
+                  {displayYear.ai.overall}
+                </div>
+
+                {displayYear.ai.wealth && (
+                  <div className="rounded-lg bg-white/5 px-3 py-2">
+                    <b>財運：</b>
+                    {displayYear.ai.wealth}
+                  </div>
+                )}
+
+                {displayYear.ai.career && (
+                  <div className="rounded-lg bg-white/5 px-3 py-2">
+                    <b>工作：</b>
+                    {displayYear.ai.career}
+                  </div>
+                )}
+
+                {displayYear.ai.invest && (
+                  <div className="rounded-lg bg-white/5 px-3 py-2">
+                    <b>投資：</b>
+                    {displayYear.ai.invest}
+                  </div>
+              )}
               </div>
-
-              {yearFortune.ai.wealth && (
-                <div className="bg-white/5 rounded-lg px-3 py-2">
-                  <b>財運：</b>{yearFortune.ai.wealth}
-                </div>
-              )}
-
-              {yearFortune.ai.career && (
-                <div className="bg-white/5 rounded-lg px-3 py-2">
-                  <b>工作：</b>{yearFortune.ai.career}
-                </div>
-              )}
-
-              {yearFortune.ai.invest && (
-                <div className="bg-white/5 rounded-lg px-3 py-2">
-                  <b>投資：</b>{yearFortune.ai.invest}
-                </div>
-              )}
-            </div>
-          </Section>
+            </Section>
           )}
         </Section>
       )}
 
-      {/* Paywall */}
       {showPaywall && (
-        <div className="rounded-xl bg-yellow-400/10 border border-yellow-400/20 px-4 py-3">
+        <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/10 px-4 py-3">
           <div className="flex items-start justify-between gap-3">
             <div className="text-sm text-yellow-100/90">
-              🔒 升級 VIP 可切換月份，查看完整月運勢與解析
+              升級 VIP 可切換月份，查看完整月運勢與 AI 深度解析。
             </div>
             <button
+              type="button"
               onClick={() => setShowPaywall(false)}
-              className="text-yellow-200/60 hover:text-yellow-200 text-sm"
+              className="text-sm text-yellow-200/60 hover:text-yellow-200"
             >
-              ✕
+              關閉
             </button>
           </div>
 
@@ -475,7 +458,7 @@ export default function MonthView() {
             onClick={() => setShowPaywall(false)}
             className="mt-3 block w-full rounded-lg bg-yellow-400/20 py-2 text-center text-sm font-semibold text-yellow-200 hover:bg-yellow-400/30"
           >
-            立即升級 →
+            前往升級 VIP
           </a>
         </div>
       )}

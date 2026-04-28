@@ -1,4 +1,5 @@
 import { Geist, Geist_Mono } from "next/font/google"
+import WebLoginOverlay from "@/components/auth/WebLoginOverlay"
 import { AuthProvider } from "@/contexts/AuthContext"
 import type { Metadata } from "next"
 import "./globals.css"
@@ -14,12 +15,12 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "未來演算所",
-  description: "結合五行八字，推演你的每日與未來運勢",
+  title: "AI Fortune",
+  description: "AI 運勢與每日命理解析",
   viewport: {
-    width: 'device-width',
+    width: "device-width",
     initialScale: 1,
-    viewportFit: 'cover',
+    viewportFit: "cover",
   },
 }
 
@@ -35,6 +36,7 @@ export default function RootLayout({
       >
         <AuthProvider>
           {children}
+          <WebLoginOverlay />
         </AuthProvider>
       </body>
     </html>
