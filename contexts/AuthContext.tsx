@@ -132,6 +132,17 @@ function persistMember(member: Member | null) {
   localStorage.setItem(MEMBER_STORAGE_KEY, JSON.stringify(member))
 }
 
+function mergeStoredRole(nextMember: Member, storedMember: Member | null): Member {
+  if (nextMember.role) return nextMember
+  if (!storedMember?.role) return nextMember
+  if (storedMember.member_id !== nextMember.member_id) return nextMember
+
+  return {
+    ...nextMember,
+    role: storedMember.role,
+  }
+}
+
 async function loginWithLineUid(lineUid: string): Promise<Member | null> {
   const formData = new FormData()
   formData.append("app_id", DEFAULT_APP_ID)
@@ -226,8 +237,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return
         }
 
-        localStorage.setItem(MEMBER_STORAGE_KEY, JSON.stringify(nextMember))
-        setMember(nextMember)
+        const normalizedMember = mergeStoredRole(nextMember, storedMember)
+        localStorage.setItem(MEMBER_STORAGE_KEY, JSON.stringify(normalizedMember))
+        setMember(normalizedMember)
         setIsLogin(true)
       } catch (err) {
         console.error("Auth init error:", err)
@@ -307,7 +319,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user_fortune_id: data.user_fortune_id,
       role: data.role
     })
-
+console.log(nextMember?.role);
     if (!nextMember) {
       throw new Error("登入成功，但會員資料格式不正確")
     }

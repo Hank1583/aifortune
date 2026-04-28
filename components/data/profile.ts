@@ -197,8 +197,7 @@ export async function getProfile(mid?: string): Promise<ProfileData> {
 
   try {
     return await getProfileAPI(mid)
-  } catch (error) {
-    console.error("getProfile error:", error)
+  } catch {
     return getEmptyProfile(toNumber(mid))
   }
 }

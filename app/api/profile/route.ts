@@ -45,7 +45,6 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.text()
-console.log(body);
     const upstream = await fetch(SAVE_PROFILE_ENDPOINT, {
       method: "POST",
       headers: {
