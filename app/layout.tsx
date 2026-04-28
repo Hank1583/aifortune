@@ -1,7 +1,7 @@
 import { Geist, Geist_Mono } from "next/font/google"
+import type { Metadata, Viewport } from "next"
 import WebLoginOverlay from "@/components/auth/WebLoginOverlay"
 import { AuthProvider } from "@/contexts/AuthContext"
-import type { Metadata } from "next"
 import "./globals.css"
 
 const geistSans = Geist({
@@ -16,12 +16,13 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "AI Fortune",
-  description: "AI 運勢與每日命理解析",
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    viewportFit: "cover",
-  },
+  description: "AI 運勢與個人命盤服務",
+}
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 }
 
 export default function RootLayout({

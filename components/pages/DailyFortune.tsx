@@ -15,12 +15,12 @@ function formatDateYMD(date: Date): string {
 }
 
 export default function DailyFortune() {
-  const { member, loading: authLoading, isPaid } = useAuth()
+  const { effectiveMemberId, loading: authLoading, isPaid } = useAuth()
   const [data, setData] = useState<FortuneResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const date = useMemo(() => formatDateYMD(new Date()), [])
-  const uid = member ? String(member.member_id) : "guest"
+  const uid = effectiveMemberId ?? "guest"
   const cacheKey = `${uid}|${date}`
   const cachedData = dailyCache[cacheKey] ?? null
   const displayData = data ?? cachedData

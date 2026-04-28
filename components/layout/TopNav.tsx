@@ -11,38 +11,32 @@ export default function TopNav({
   active: TabKey
   onChange: (key: TabKey) => void
 }) {
-  const { isLogin, openLogin } = useAuth()
+  const { isLogin } = useAuth()
 
-  // 🔧【開發用】強制登入（需要時才打開）
-  const DEV_FORCE_LOGIN = false
-  const loginState = DEV_FORCE_LOGIN ? true : isLogin
-
-  const tabs: [TabKey, string][] = loginState
+  const tabs: [TabKey, string][] = isLogin
     ? [
         ["wuxing", "今日五行"],
-        ["fortune", "每日運勢"],
+        ["fortune", "今日運勢"],
         ["calendar", "日曆"],
         ["month", "月曆"],
         ["profile", "個人資料"],
       ]
-    : [
-        ["wuxing", "今日五行"],
-      ]
+    : [["wuxing", "今日五行"]]
 
   return (
-    <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20">
-      <div className="flex items-center gap-8 px-8 py-3 rounded-full bg-white/10 backdrop-blur-md">
-        {/* Tabs */}
+    <div className="absolute top-6 left-1/2 z-20 -translate-x-1/2">
+      <div className="flex flex-wrap items-center justify-center gap-8 rounded-full bg-white/10 px-8 py-3 backdrop-blur-md">
         {tabs.map(([key, label]) => {
           const isActive = active === key
 
           return (
             <button
               key={key}
+              type="button"
               onClick={() => onChange(key)}
               className={`whitespace-nowrap text-sm transition ${
                 isActive
-                  ? "text-white font-semibold"
+                  ? "font-semibold text-white"
                   : "text-white/60 hover:text-white"
               }`}
             >

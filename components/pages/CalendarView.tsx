@@ -207,9 +207,10 @@ export default function CalendarView() {
     loading: authLoading,
     isPaid,
     openLogin,
+    effectiveMemberId,
   } = useAuth()
 
-  const uid = member ? String(member.member_id) : "guest"
+  const uid = effectiveMemberId ?? "guest"
 
   const today = useMemo(() => {
     const d = new Date()

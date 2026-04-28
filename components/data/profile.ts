@@ -1,13 +1,9 @@
-/* =========================
- * 型別定義
- * ========================= */
-
 export type DayMasterStrengthResult =
-  | "從強"
   | "身強"
-  | "一般"
+  | "偏強"
+  | "中和"
+  | "偏弱"
   | "身弱"
-  | "從弱"
 
 export type DayMasterStrength = {
   day_master: string
@@ -17,22 +13,14 @@ export type DayMasterStrength = {
   result: DayMasterStrengthResult
 }
 
-export type WuxingCount = Record<"木" | "火" | "土" | "金" | "水", number>
-
-export type TenGodCount = {
-  比肩: number
-  劫財: number
-  食神: number
-  傷官: number
-  偏財: number
-  正財: number
-  七殺: number
-  正官: number
-  偏印: number
-  正印: number
-}
+export type WuxingKey = "木" | "火" | "土" | "金" | "水"
+export type WuxingCount = Record<WuxingKey, number>
+export type TenGodCount = Record<string, number>
 
 export type ProfileData = {
+  id: number | null
+  memberId: number | null
+  exists: boolean
   birth: {
     date: string
     time: string
@@ -56,23 +44,32 @@ export type ProfileData = {
   shishen_analysis: string
 }
 
-/* =========================
- * Empty Profile（保底）
- * ========================= */
+type SaveProfileInput = {
+  id?: number | null
+  memberId: number
+  name: string
+  birthDate: string
+  birthTime: string
+  gender: "男" | "女"
+  lineUserId?: string | null
+}
 
-export function getEmptyProfile(): ProfileData {
+const PROFILE_ENDPOINT = "/api/profile"
+
+export function getEmptyProfile(memberId?: number | null): ProfileData {
   return {
+    id: null,
+    memberId: memberId ?? null,
+    exists: false,
     birth: {
       date: "",
       time: "",
       gender: "男",
     },
-
     schedule: {
       daily: false,
       monthly: false,
     },
-
     notify: {
       overall: false,
       wealth: false,
@@ -81,15 +78,13 @@ export function getEmptyProfile(): ProfileData {
       social: false,
       lottery: false,
     },
-
     dayMasterStrength: {
       day_master: "",
       support: 0,
       drain: 0,
       ratio: 0,
-      result: "一般",
+      result: "中和",
     },
-
     wuxing: {
       木: 0,
       火: 0,
@@ -97,115 +92,160 @@ export function getEmptyProfile(): ProfileData {
       金: 0,
       水: 0,
     },
-
-    tenGod: {
-      比肩: 0,
-      劫財: 0,
-      食神: 0,
-      傷官: 0,
-      偏財: 0,
-      正財: 0,
-      七殺: 0,
-      正官: 0,
-      偏印: 0,
-      正印: 0,
-    },
-    shishen_analysis: ""
+    tenGod: {},
+    shishen_analysis: "",
   }
 }
 
-/* =========================
- * 工具：安全 JSON parse
- * ========================= */
+export function hasProfileData(profile: ProfileData | null | undefined) {
+  if (!profile) return false
+  if (profile.exists) return true
+  return Boolean(profile.birth.date || profile.birth.time)
+}
 
 function safeParse<T>(json: string | undefined | null, fallback: T): T {
   try {
     if (!json) return fallback
-    return JSON.parse(json)
+    return JSON.parse(json) as T
   } catch {
     return fallback
   }
 }
 
-/* =========================
- * API → ProfileData mapping
- * ========================= */
+function toNumber(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return value
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return null
+}
 
-function mapApiToProfile(api: any): ProfileData {
-  const empty = getEmptyProfile()
+function mapApiToProfile(
+  api: Record<string, unknown> | null | undefined,
+  mid?: number | null
+): ProfileData {
+  const empty = getEmptyProfile(mid)
+  if (!api || typeof api !== "object") return empty
 
-  const scheduleList = (api.schedule ?? "").split(",")
-  const sectionList = (api.section ?? "").split(",")
+  const id = toNumber(api.id)
+  const memberId = toNumber(api.member_id) ?? mid ?? null
+  const normalizedId = id && id > 0 ? id : null
+
+  if (normalizedId == null && !api.birth_date && !api.birth_time && !api.gender) {
+    return {
+      ...empty,
+      memberId,
+    }
+  }
+
+  const scheduleList = String(api.schedule ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+  const sectionList = String(api.section ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
 
   return {
+    id: normalizedId,
+    memberId,
+    exists: true,
     birth: {
-      date: api.birth_date ?? "",
-      time: api.birth_time ? api.birth_time.slice(0, 5) : "",
-      gender: api.gender === "女" ? "女" : "男",
+      date: String(api.birth_date ?? ""),
+      time: api.birth_time ? String(api.birth_time).slice(0, 5) : "",
+      gender: String(api.gender ?? "") === "女" ? "女" : "男",
     },
-
     schedule: {
-      daily: scheduleList.includes("日"),
-      monthly: scheduleList.includes("月"),
+      daily: scheduleList.includes("daily"),
+      monthly: scheduleList.includes("monthly"),
     },
-
     notify: {
-      overall: sectionList.includes("整體"),
-      wealth: sectionList.includes("財運"),
-      career: sectionList.includes("工作運"),
-      invest: sectionList.includes("投資"),
-      social: sectionList.includes("人際"),
-      lottery: sectionList.includes("彩券"),
+      overall: sectionList.includes("overall"),
+      wealth: sectionList.includes("wealth"),
+      career: sectionList.includes("career"),
+      invest: sectionList.includes("invest"),
+      social: sectionList.includes("social"),
+      lottery: sectionList.includes("lottery"),
     },
-
     dayMasterStrength: safeParse(
-      api.body_strength,
+      api.body_strength as string | undefined,
       empty.dayMasterStrength
     ),
-
-    wuxing: safeParse(
-      api.wuxing_json,
-      empty.wuxing
-    ),
-
-    tenGod: safeParse(
-      api.shishen_json,
-      empty.tenGod
-    ),
-
-    shishen_analysis:api.shishen_analysis
+    wuxing: safeParse(api.wuxing_json as string | undefined, empty.wuxing),
+    tenGod: safeParse(api.shishen_json as string | undefined, empty.tenGod),
+    shishen_analysis: String(api.shishen_analysis ?? ""),
   }
 }
 
-/* =========================
- * API 呼叫
- * ========================= */
-
 export async function getProfileAPI(mid: string): Promise<ProfileData> {
-  const res = await fetch(`https://www.highlight.url.tw/ai_fortune/php/get_user_fortune.php?mid=${mid}`)
-  console.log(`https://www.highlight.url.tw/ai_fortune/php/get_user_fortune.php?mid=${mid}`);
+  const res = await fetch(`${PROFILE_ENDPOINT}?mid=${mid}`)
+
   if (!res.ok) {
     throw new Error("Failed to fetch profile")
   }
 
-  const apiData = await res.json()
-  return mapApiToProfile(apiData)
+  const apiData = (await res.json()) as Record<string, unknown>
+  return mapApiToProfile(apiData, toNumber(mid))
 }
 
-/* =========================
- * 對外統一入口
- * ========================= */
-
 export async function getProfile(mid?: string): Promise<ProfileData> {
-  console.log("mid:"+mid);
   if (!mid) {
     return getEmptyProfile()
   }
 
   try {
     return await getProfileAPI(mid)
-  } catch (err) {
-    console.error("getProfile error:", err)
-    return getEmptyProfile()
+  } catch (error) {
+    console.error("getProfile error:", error)
+    return getEmptyProfile(toNumber(mid))
   }
+}
+
+export async function saveProfile(input: SaveProfileInput) {
+  const payload = {
+    name: input.name,
+    member_id: input.memberId,
+    birth_date: input.birthDate,
+    birth_time: input.birthTime,
+    gender: input.gender,
+    line_user_id: input.lineUserId ?? undefined,
+    ...(input.id && input.id > 0 ? { id: input.id } : {}),
+  }
+
+  const res = await fetch(PROFILE_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  })
+
+  const data = await res.json().catch(() => null)
+
+  if (!res.ok) {
+    throw new Error(
+      (data &&
+        typeof data === "object" &&
+        ((typeof data.message === "string" && data.message) ||
+          (typeof data.error === "string" && data.error))) ||
+        "儲存個人資料失敗"
+    )
+  }
+
+  if (
+    data &&
+    typeof data === "object" &&
+    typeof data.status === "string" &&
+    data.status !== "success"
+  ) {
+    throw new Error(
+      (typeof data.message === "string" && data.message) ||
+        (typeof data.error === "string" && data.error) ||
+        "儲存個人資料失敗"
+    )
+  }
+
+  return data
 }

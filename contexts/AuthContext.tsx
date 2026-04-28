@@ -16,6 +16,7 @@ type Member = {
   member_id: number
   email: string
   name: string
+  role?: string
   app_id: string
   subscription: Plan
   avatar?: string
@@ -43,6 +44,13 @@ type AuthContextType = {
   setEntryMode: (mode: Exclude<EntryMode, "auto">) => void
   loginError: string | null
   loginWithWeb: (form: WebLoginForm) => Promise<void>
+  updateMember: (patch: Partial<Member>) => void
+  isAdmin: boolean
+  viewUid: string | null
+  effectiveMemberId: string | null
+  isViewingAsAdmin: boolean
+  setViewUid: (uid: string) => void
+  clearViewUid: () => void
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -80,6 +88,7 @@ function normalizeMember(raw: unknown): Member | null {
     member_id: data.member_id,
     email: typeof data.email === "string" ? data.email : "",
     name: typeof data.name === "string" ? data.name : "",
+    role: typeof data.role === "string" ? data.role : undefined,
     app_id: typeof data.app_id === "string" ? data.app_id : DEFAULT_APP_ID,
     subscription: data.subscription === "vip" ? "vip" : "free",
     avatar: typeof data.avatar === "string" ? data.avatar : undefined,
@@ -90,12 +99,37 @@ function normalizeMember(raw: unknown): Member | null {
   }
 }
 
+function readViewUidFromSearch(search: string) {
+  const params = new URLSearchParams(search)
+  const value = params.get("view_uid")
+  return value && value.trim() ? value.trim() : null
+}
+
+function persistViewUid(viewUid: string | null) {
+  const url = new URL(window.location.href)
+  if (viewUid) {
+    url.searchParams.set("view_uid", viewUid)
+  } else {
+    url.searchParams.delete("view_uid")
+  }
+  window.history.replaceState({}, "", url)
+}
+
 function persistEntryMode(mode: "line" | "web") {
   localStorage.setItem(ENTRY_MODE_STORAGE_KEY, mode)
 
   const url = new URL(window.location.href)
   url.searchParams.set("entry", mode)
   window.history.replaceState({}, "", url)
+}
+
+function persistMember(member: Member | null) {
+  if (!member) {
+    localStorage.removeItem(MEMBER_STORAGE_KEY)
+    return
+  }
+
+  localStorage.setItem(MEMBER_STORAGE_KEY, JSON.stringify(member))
 }
 
 async function loginWithLineUid(lineUid: string): Promise<Member | null> {
@@ -115,6 +149,7 @@ async function loginWithLineUid(lineUid: string): Promise<Member | null> {
     member_id: data.member_id,
     email: data.email,
     name: data.name,
+    role: typeof data.role === "string" ? data.role : undefined,
     app_id: data.app_id,
     subscription: data.subscription,
     avatar: data.avatar,
@@ -131,6 +166,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [lineUid, setLineUid] = useState<string | null>(null)
   const [loginError, setLoginError] = useState<string | null>(null)
   const [entryMode, setEntryModeState] = useState<"line" | "web">("web")
+  const [viewUid, setViewUidState] = useState<string | null>(null)
 
   useEffect(() => {
     const preferred = resolveEntryMode(window.location.search)
@@ -152,6 +188,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (storedMember) {
       setMember(storedMember)
       setIsLogin(true)
+    }
+
+    const nextViewUid = readViewUidFromSearch(window.location.search)
+    if (storedMember?.role === "admin" && nextViewUid) {
+      setViewUidState(nextViewUid)
     }
 
     if (nextMode === "web") {
@@ -201,12 +242,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const plan = useMemo<Plan>(() => member?.subscription ?? "free", [member])
+  const isAdmin = member?.role === "admin"
+  const isViewingAsAdmin = Boolean(isAdmin && viewUid)
+  const effectiveMemberId = useMemo(() => {
+    if (isViewingAsAdmin && viewUid) return viewUid
+    if (!member?.member_id) return null
+    return String(member.member_id)
+  }, [isViewingAsAdmin, member?.member_id, viewUid])
 
   const logout = () => {
     localStorage.removeItem(MEMBER_STORAGE_KEY)
     setMember(null)
     setIsLogin(false)
     setLoginError(null)
+    setViewUidState(null)
+    persistViewUid(null)
     if (entryMode === "web") {
       setIsLoginOpen(true)
     }
@@ -255,6 +305,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       avatar: data.avatar,
       expire_date: data.expire_date,
       user_fortune_id: data.user_fortune_id,
+      role: data.role
     })
 
     if (!nextMember) {
@@ -280,6 +331,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const closeLogin = () => setIsLoginOpen(false)
 
+  const updateMember = (patch: Partial<Member>) => {
+    setMember((current) => {
+      if (!current) return current
+      const nextMember = { ...current, ...patch }
+      persistMember(nextMember)
+      return nextMember
+    })
+  }
+
+  const setViewUid = (uid: string) => {
+    const nextUid = uid.trim()
+    if (!isAdmin || !nextUid) return
+    setViewUidState(nextUid)
+    persistViewUid(nextUid)
+  }
+
+  const clearViewUid = () => {
+    setViewUidState(null)
+    persistViewUid(null)
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -297,6 +369,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setEntryMode,
         loginError,
         loginWithWeb,
+        updateMember,
+        isAdmin,
+        viewUid,
+        effectiveMemberId,
+        isViewingAsAdmin,
+        setViewUid,
+        clearViewUid,
       }}
     >
       {children}

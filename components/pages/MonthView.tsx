@@ -108,13 +108,14 @@ function Section({
 }
 
 export default function MonthView() {
-  const { member, loading: authLoading, isPaid, openLogin } = useAuth()
+  const { member, loading: authLoading, isPaid, openLogin, effectiveMemberId } =
+    useAuth()
   const [yearFortune, setYearFortune] = useState<YearFortune | null>(null)
   const [monthFortune, setMonthFortune] = useState<MonthFortune | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [showPaywall, setShowPaywall] = useState(false)
 
-  const uid = member ? String(member.member_id) : "guest"
+  const uid = effectiveMemberId ?? "guest"
   const today = useMemo(() => {
     const d = new Date()
     d.setHours(0, 0, 0, 0)

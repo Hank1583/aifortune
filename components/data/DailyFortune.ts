@@ -16,6 +16,9 @@ export interface FortuneResponse {
   text: string
 }
 
+const DAILY_SYNC_ENDPOINT =
+  "https://www.highlight.url.tw/ai_fortune/php/sync_ai_daily.php"
+
 export function extractSection(text: string, emoji: string): string[] {
   const index = text.indexOf(emoji)
   if (index === -1) return []
@@ -32,7 +35,7 @@ export function extractSection(text: string, emoji: string): string[] {
   return sectionText
     .split("\n")
     .slice(1)
-    .map(line => line.trim())
+    .map((line) => line.trim())
     .filter(Boolean)
 }
 
@@ -43,7 +46,7 @@ export async function fetchDailyFortune(
   const params = new URLSearchParams({ uid })
   if (date) params.append("date", date)
 
-  const res = await fetch(`https://www.highlight.url.tw/ai_fortune/php/sync_ai_daily.php?${params.toString()}`)
+  const res = await fetch(`${DAILY_SYNC_ENDPOINT}?${params.toString()}`)
 
   if (!res.ok) {
     throw new Error("Failed to fetch daily fortune")

@@ -44,10 +44,7 @@ export default function WebLoginOverlay() {
       <div className="w-full max-w-md rounded-3xl border border-white/10 bg-neutral-950/95 p-6 text-white shadow-2xl">
         <div className="mb-6 flex items-start justify-between gap-3">
           <div>
-            <div className="text-2xl font-semibold">一般登入</div>
-            <p className="mt-2 text-sm text-white/60">
-              輸入你在 business-cloud 使用的帳號與密碼。若你是在 LINE 內開啟，也可以切換回 LINE 登入。
-            </p>
+            <div className="text-2xl font-semibold">登入</div>
           </div>
           <button
             type="button"

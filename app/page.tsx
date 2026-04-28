@@ -15,21 +15,19 @@ import MonthView from "@/components/pages/MonthView"
 import ProfileView from "@/components/pages/ProfileView"
 
 import { useFortuneData } from "@/components/data/HomePage"
+import { useAuth } from "@/contexts/AuthContext"
 
-/* =========================
-   Main Page
-========================= */
+type TabKey = "wuxing" | "fortune" | "calendar" | "month" | "profile"
+type WuxingKey = "木" | "火" | "土" | "金" | "水"
 
 export default function HomePage() {
-  const [tab, setTab] = useState<
-    "wuxing" | "fortune" | "calendar" | "month" | "profile"
-  >("wuxing")
-
+  const [tab, setTab] = useState<TabKey>("wuxing")
   const { data, isLoading } = useFortuneData()
+  useAuth()
 
   if (isLoading) {
     return (
-      <main className="min-h-screen bg-black text-white flex items-center justify-center">
+      <main className="flex min-h-screen items-center justify-center bg-black text-white">
         Loading...
       </main>
     )
@@ -37,68 +35,65 @@ export default function HomePage() {
 
   if (!data?.today) {
     return (
-      <main className="min-h-screen bg-black text-white flex items-center justify-center">
+      <main className="flex min-h-screen items-center justify-center bg-black text-white">
         No data
       </main>
     )
   }
-  
-  const todayFortune: TodayFortune | null = data
-    ? {
-        date: data.today.date,
-        ganzhi: data.today.ganzhi,
-        element: mapDominantToElement(data.today.dominant),
-        wuxingCount: toWuxingCount(data.today.wuxing),
-      }
-    : null
+
+  const activeTab = tab
+
+  const todayFortune: TodayFortune = {
+    date: data.today.date,
+    ganzhi: data.today.ganzhi,
+    element: mapDominantToElement(data.today.dominant as WuxingKey),
+    wuxingCount: toWuxingCount(
+      data.today.wuxing as Array<{ key: WuxingKey; value: number }>
+    ),
+  }
 
   return (
     <main className="home-root w-full">
-      {/* ===== 宇宙主視覺（只在資料 ready 時顯示） ===== */}
-      {!isLoading && todayFortune && (
-        <div className="relative w-full overflow-hidden">
-          <CosmicSphere todayFortune={todayFortune} />
-        </div>
-      )}
+      <div className="relative w-full overflow-hidden">
+        <CosmicSphere todayFortune={todayFortune} />
+      </div>
 
-      <TopNav active={tab} onChange={setTab} />
+      <TopNav
+        active={activeTab}
+        onChange={setTab}
+      />
 
       <ContentPanel className="w-full">
-        {tab === "wuxing" && <DailyWuxing />}
-        {tab === "fortune" && <DailyFortune />}
-        {tab === "calendar" && <CalendarView />}
-        {tab === "month" && <MonthView />}
-        {tab === "profile" && <ProfileView />}
+        {activeTab === "wuxing" && <DailyWuxing />}
+        {activeTab === "fortune" && <DailyFortune />}
+        {activeTab === "calendar" && <CalendarView />}
+        {activeTab === "month" && <MonthView />}
+        {activeTab === "profile" && <ProfileView />}
       </ContentPanel>
     </main>
   )
 }
 
-/* =========================
-   Helpers（資料轉換層）
-========================= */
-
-function mapDominantToElement(
-  d: "木" | "火" | "土" | "金" | "水"
-): TodayFortune["element"] {
-  const map = {
+function mapDominantToElement(dominant: WuxingKey): TodayFortune["element"] {
+  const map: Record<WuxingKey, TodayFortune["element"]> = {
     木: "wood",
     火: "fire",
     土: "earth",
     金: "metal",
     水: "water",
-  } as const
-  return map[d]
+  }
+
+  return map[dominant]
 }
 
 function toWuxingCount(
-  list: { key: "木" | "火" | "土" | "金" | "水"; value: number }[]
+  list: Array<{ key: WuxingKey; value: number }>
 ): TodayFortune["wuxingCount"] {
   return {
-    wood: list.find((w) => w.key === "木")?.value ?? 0,
-    fire: list.find((w) => w.key === "火")?.value ?? 0,
-    earth: list.find((w) => w.key === "土")?.value ?? 0,
-    metal: list.find((w) => w.key === "金")?.value ?? 0,
-    water: list.find((w) => w.key === "水")?.value ?? 0,
+    wood: list.find((item) => item.key === "木")?.value ?? 0,
+    fire: list.find((item) => item.key === "火")?.value ?? 0,
+    earth: list.find((item) => item.key === "土")?.value ?? 0,
+    metal: list.find((item) => item.key === "金")?.value ?? 0,
+    water: list.find((item) => item.key === "水")?.value ?? 0,
   }
 }
