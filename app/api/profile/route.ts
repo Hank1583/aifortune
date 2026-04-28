@@ -1,4 +1,4 @@
-export const runtime = "nodejs"
+export const runtime = "edge"
 
 const GET_PROFILE_ENDPOINT =
   "https://www.highlight.url.tw/ai_fortune/php/get_user_fortune.php"
