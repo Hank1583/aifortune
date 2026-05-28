@@ -1,5 +1,3 @@
-
-
 export type DailyScores = {
   overall: number
   wealth: number
@@ -30,30 +28,63 @@ export type DailyFortune = {
   }
 }
 
-/* ===== 中文分數 key → 英文 ===== */
-export function mapScores(cn: Record<string, number>) {
+type ApiDay = {
+  uid?: string
+  date?: string
+  scores?: Record<string, number> | unknown[]
+  meta?: DailyFortune["meta"]
+  error?: string
+}
+
+type ApiResponse = {
+  days?: ApiDay[]
+}
+
+function normalizeScores(scores: ApiDay["scores"]) {
+  if (!scores || Array.isArray(scores)) return undefined
+  return scores
+}
+
+function readScore(scores: Record<string, number> | undefined, keys: string[]) {
+  if (!scores) return null
+  for (const key of keys) {
+    const value = scores[key]
+    if (typeof value === "number" && Number.isFinite(value)) return value
+  }
+  return null
+}
+
+export function mapScores(scores: ApiDay["scores"]) {
+  const normalized = normalizeScores(scores)
+
   return {
-    overall: cn["整體"] ?? 0,
-    wealth: cn["財運"] ?? 0,
-    work: cn["工作運"] ?? 0,
-    investment: cn["投資"] ?? 0,
-    social: cn["人際"] ?? 0,
-    lottery: cn["彩券"] ?? 0, // 有就用，沒有就 0
+    overall: readScore(normalized, ["整體", "整體運勢", "總運"]) ?? 0,
+    wealth: readScore(normalized, ["財運"]) ?? 0,
+    work: readScore(normalized, ["工作運", "事業", "工作"]) ?? 0,
+    investment: readScore(normalized, ["投資", "投資運"]) ?? 0,
+    social: readScore(normalized, ["人際", "感情", "社交"]) ?? 0,
+    lottery: readScore(normalized, ["彩券", "樂透"]) ?? 0,
   }
 }
 
+function hasScoreData(scores: DailyScores) {
+  return Object.values(scores).some((value) => value > 0)
+}
 
-
-/* ===== 每日運勢 ===== */
-export function adaptDailyList(api: any): Record<string, DailyFortune> {
+export function adaptDailyList(api: ApiResponse): Record<string, DailyFortune> {
   const out: Record<string, DailyFortune> = {}
 
-  for (const d of api.days) {
-    out[d.date] = {
-      uid: d.uid ?? "",
-      date: d.date,
-      scores: mapScores(d.scores),
-      meta: d.meta,
+  for (const day of api.days ?? []) {
+    if (!day.date || day.error) continue
+
+    const scores = mapScores(day.scores)
+    if (!hasScoreData(scores)) continue
+
+    out[day.date] = {
+      uid: day.uid ?? "",
+      date: day.date,
+      scores,
+      meta: day.meta,
     }
   }
 
@@ -62,16 +93,19 @@ export function adaptDailyList(api: any): Record<string, DailyFortune> {
 
 const BASE = "https://www.highlight.url.tw/ai_fortune/php"
 
-
 export async function fetchDailyForMonth(
   uid: string,
   month: string
 ): Promise<Record<string, DailyFortune>> {
   const res = await fetch(
-    `${BASE}/get_daily_for_month.php?uid=${uid}&month=${month}`,
+    `${BASE}/get_daily_for_month.php?uid=${encodeURIComponent(uid)}&month=${encodeURIComponent(month)}`,
     { cache: "no-store" }
   )
-  const json = await res.json()
-  console.log(json);
+
+  if (!res.ok) {
+    throw new Error("Failed to fetch daily scores")
+  }
+
+  const json = (await res.json()) as ApiResponse
   return adaptDailyList(json)
 }

@@ -1,17 +1,20 @@
 "use client"
+
 import ReactECharts from "echarts-for-react"
-import React, { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import {
   fetchDailyForMonth,
   type DailyFortune,
 } from "@/components/data/CalendarView"
-/* =========================
-   日期工具
-========================= */
 
 const WEEK_LABELS = ["日", "一", "二", "三", "四", "五", "六"]
 const dailyCache: Record<string, Record<string, DailyFortune>> = {}
+const dailyPendingCache: Record<string, Promise<Record<string, DailyFortune>>> =
+  {}
+const DAILY_MONTH_API_BASE =
+  "https://www.highlight.url.tw/ai_fortune/php/get_daily_for_month.php"
+
 const pad2 = (n: number) => String(n).padStart(2, "0")
 const toISO = (d: Date) =>
   `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
@@ -24,29 +27,40 @@ const isSameDay = (a: Date, b: Date) =>
   a.getFullYear() === b.getFullYear() &&
   a.getMonth() === b.getMonth() &&
   a.getDate() === b.getDate()
-/* =========================
-   UI helpers
-========================= */
+
+type QueryCandidate = {
+  source: string
+  value: string
+}
+
+function uniqueCandidates(candidates: Array<QueryCandidate | null>) {
+  const seen = new Set<string>()
+  const out: QueryCandidate[] = []
+
+  for (const candidate of candidates) {
+    if (!candidate || seen.has(candidate.value)) continue
+    seen.add(candidate.value)
+    out.push(candidate)
+  }
+
+  return out
+}
 
 function scoreTone(v: number) {
-  if (v >= 8.5) return "text-emerald-300"   // 強運
-  if (v >= 7)   return "text-cyan-300"      // 偏強
-  if (v >= 5.5) return "text-white/80"      // 穩定
-  if (v >= 4.5) return "text-yellow-300"    // 偏弱
-  return "text-red-400"                     // 低潮
+  if (v >= 8.5) return "text-emerald-300"
+  if (v >= 7) return "text-cyan-300"
+  if (v >= 5.5) return "text-white/80"
+  if (v >= 4.5) return "text-yellow-300"
+  return "text-red-400"
 }
 
 function dotTone(v: number) {
-  if (v >= 8.5) return "bg-emerald-400"   // 強運
-  if (v >= 7)   return "bg-cyan-400"      // 偏強
-  if (v >= 5.5) return "bg-white/50"      // 穩定
-  if (v >= 4.5) return "bg-yellow-400"    // 偏弱
-  return "bg-red-400"                     // 低潮
+  if (v >= 8.5) return "bg-emerald-400"
+  if (v >= 7) return "bg-cyan-400"
+  if (v >= 5.5) return "bg-white/50"
+  if (v >= 4.5) return "bg-yellow-400"
+  return "bg-red-400"
 }
-
-/* =========================
-   Section（可折疊）
-========================= */
 
 function Section({
   title,
@@ -62,23 +76,18 @@ function Section({
   const [open, setOpen] = useState(defaultOpen)
 
   return (
-    <div className="rounded-2xl bg-white/5 px-1 py-2">
+    <div className="rounded-2xl bg-white/5 px-3 py-3">
       <button
+        type="button"
         onClick={() => setOpen(!open)}
-        className="w-full flex items-start justify-between mb-3 text-left"
+        className="mb-3 flex w-full items-start justify-between text-left"
       >
         <div>
-          <div className="text-lg font-semibold text-white">
-            {title}
-          </div>
-          {subtitle && (
-            <div className="text-xs text-white/50 mt-0.5">
-              {subtitle}
-            </div>
-          )}
+          <div className="text-lg font-semibold text-white">{title}</div>
+          {subtitle && <div className="mt-0.5 text-xs text-white/50">{subtitle}</div>}
         </div>
-        <div className="text-white/50 text-sm mt-1">
-          {open ? "▲" : "▼"}
+        <div className="mt-1 text-sm text-white/50">
+          {open ? "收合" : "展開"}
         </div>
       </button>
 
@@ -108,7 +117,7 @@ function FortuneCurveChart({
         backgroundColor: "rgba(20,20,20,0.95)",
         borderColor: "rgba(255,255,255,0.15)",
         textStyle: { color: "#fff" },
-        valueFormatter: (v: any) => Number(v).toFixed(1),
+        valueFormatter: (v: number) => Number(v).toFixed(1),
       },
       xAxis: {
         type: "category",
@@ -124,8 +133,6 @@ function FortuneCurveChart({
         axisLabel: { color: "rgba(255,255,255,0.65)" },
         splitLine: { lineStyle: { color: "rgba(255,255,255,0.08)" } },
       },
-
-      // ✅ inside-only：手機捏合、桌機滾輪、拖曳平移
       dataZoom: [
         {
           type: "inside",
@@ -136,7 +143,6 @@ function FortuneCurveChart({
           preventDefaultMouseMove: true,
         },
       ],
-
       series: [
         {
           type: "line",
@@ -146,26 +152,12 @@ function FortuneCurveChart({
           symbolSize: 6,
           lineStyle: { width: 2, color: "rgba(255,255,255,0.9)" },
           itemStyle: { color: "rgba(255,255,255,0.9)" },
-          areaStyle: {
-            color: {
-              type: "linear",
-              x: 0,
-              y: 0,
-              x2: 0,
-              y2: 1,
-              colorStops: [
-                { offset: 0, color: "rgba(255,255,255,0.15)" },
-                { offset: 1, color: "rgba(255,255,255,0.02)" },
-              ],
-            },
-          },
-          // ✅ 標記最高點（綠色）
           markLine: maxPoint
             ? {
                 symbol: "none",
                 lineStyle: { color: "rgba(16,185,129,0.5)", width: 1 },
                 label: { show: false },
-                data: [{ xAxis: maxPoint.day-1 }],
+                data: [{ xAxis: maxPoint.day - 1 }],
               }
             : undefined,
         },
@@ -175,19 +167,19 @@ function FortuneCurveChart({
 
   const onEvents = useMemo(
     () => ({
-      click: (params: any) => {
+      click: (params: { dataIndex?: number }) => {
         const idx = params?.dataIndex
-        const iso = data[idx]?.iso
+        const iso = typeof idx === "number" ? data[idx]?.iso : undefined
         if (iso) onPickISO(iso)
       },
     }),
     [data, onPickISO]
   )
 
-  if (!data?.length) return null
+  if (!data.length) return null
 
   return (
-    <div className="w-full h-[260px] touch-none">
+    <div className="h-[260px] w-full touch-none">
       <ReactECharts
         option={option}
         onEvents={onEvents}
@@ -197,10 +189,6 @@ function FortuneCurveChart({
   )
 }
 
-/* =========================
-   Page
-========================= */
-
 export default function CalendarView() {
   const {
     member,
@@ -208,9 +196,8 @@ export default function CalendarView() {
     isPaid,
     openLogin,
     effectiveMemberId,
+    isViewingAsAdmin,
   } = useAuth()
-
-  const uid = effectiveMemberId ?? "guest"
 
   const today = useMemo(() => {
     const d = new Date()
@@ -222,38 +209,109 @@ export default function CalendarView() {
     startOfMonth(today.getFullYear(), today.getMonth())
   )
   const [selectedISO, setSelectedISO] = useState(toISO(today))
-
   const [monthData, setMonthData] = useState<Record<string, DailyFortune>>({})
-
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [showPaywall, setShowPaywall] = useState(false)
+  const [curveKey, setCurveKey] = useState<
+    "overall" | "wealth" | "work" | "investment" | "social"
+  >("wealth")
 
   const year = cursorMonth.getFullYear()
   const month = cursorMonth.getMonth()
   const ym = `${year}-${pad2(month + 1)}`
-  /* ===== 抓 API ===== */
+
+  const queryCandidates = useMemo(
+    () =>
+      uniqueCandidates([
+        isViewingAsAdmin && effectiveMemberId
+          ? { source: "admin view_uid", value: effectiveMemberId }
+          : null,
+        member?.member_id
+          ? { source: "member.member_id", value: String(member.member_id) }
+          : null,
+      ]),
+    [
+      effectiveMemberId,
+      isViewingAsAdmin,
+      member,
+    ]
+  )
+
   useEffect(() => {
-    if (authLoading || !uid) return
+    if (authLoading || !member) return
 
-    const cacheKey = `${uid}-${ym}`
-
-    if (dailyCache[cacheKey]) {
-      setMonthData(dailyCache[cacheKey])
-      setLoading(false)
+    if (!queryCandidates.length) {
+      queueMicrotask(() => {
+        setMonthData({})
+        setLoading(false)
+      })
       return
     }
 
-    setLoading(true)
-    fetchDailyForMonth(uid, ym)
-      .then((m) => {
-        setMonthData(m)
-        dailyCache[cacheKey] = m
-      })
-      .finally(() => setLoading(false))
-  }, [authLoading, uid, ym])
+    const cached = queryCandidates
+      .map((candidate) => dailyCache[`${candidate.value}-${ym}`])
+      .find((data) => data && Object.keys(data).length > 0)
 
-  /* ===== 日曆格子 ===== */
+    if (cached) {
+      queueMicrotask(() => {
+        setMonthData(cached)
+        setLoading(false)
+        setError(null)
+      })
+      return
+    }
+
+    queueMicrotask(() => {
+      setLoading(true)
+      setError(null)
+    })
+
+    async function loadWithFallback() {
+      for (const candidate of queryCandidates) {
+        const cacheKey = `${candidate.value}-${ym}`
+        const cachedData = dailyCache[cacheKey]
+
+        if (cachedData && Object.keys(cachedData).length > 0) {
+          return cachedData
+        }
+
+        const url = `${DAILY_MONTH_API_BASE}?uid=${encodeURIComponent(candidate.value)}&month=${encodeURIComponent(ym)}`
+        console.log(
+          `[CalendarView] fetch daily month (${candidate.source}):`,
+          url
+        )
+        const pending =
+          dailyPendingCache[cacheKey] ??
+          (dailyPendingCache[cacheKey] = fetchDailyForMonth(candidate.value, ym))
+
+        const data = await pending.finally(() => {
+          if (dailyPendingCache[cacheKey] === pending) {
+            delete dailyPendingCache[cacheKey]
+          }
+        })
+
+        dailyCache[cacheKey] = data
+
+        if (Object.keys(data).length > 0) return data
+      }
+
+      return {}
+    }
+
+    loadWithFallback()
+      .then((data) => {
+        setMonthData(data)
+        if (Object.keys(data).length === 0) {
+          console.warn(
+            "[CalendarView] API returned days, but no usable score fields were found. Check whether the backend is returning scores as an object for this member."
+          )
+          setError("本月暫無日曆分數資料。")
+        }
+      })
+      .catch(() => setError("日曆分數讀取失敗，請稍後再試。"))
+      .finally(() => setLoading(false))
+  }, [authLoading, member, queryCandidates, ym])
+
   const cells = useMemo(() => {
     const first = startOfMonth(year, month)
     const firstWeekday = first.getDay()
@@ -271,16 +329,10 @@ export default function CalendarView() {
 
   const selected = monthData[selectedISO]
 
-  // 你要畫哪個分數（預設財運）
-  const [curveKey, setCurveKey] = useState<
-    "overall" | "wealth" | "work" | "investment" | "social"
-  >("wealth")
-
   const curveData = useMemo(() => {
-    // monthData: Record<iso, DailyFortune>
     const rows = Object.values(monthData)
       .map((d) => ({
-        iso: d.date,                // 你這裡 d.date 看起來就是 YYYY-MM-DD
+        iso: d.date,
         day: Number(d.date.slice(8, 10)),
         score: Number(d.scores[curveKey] ?? 0),
       }))
@@ -291,17 +343,16 @@ export default function CalendarView() {
 
     return { rows, max }
   }, [monthData, curveKey])
-  
-  /* ===== 操作 ===== */
+
   const onPrevMonth = () => {
     if (!member) return openLogin()
-    if (!isPaid) return setShowPaywall(true)
+    if (!isPaid) return
     setCursorMonth((d) => addMonths(d, -1))
   }
 
   const onNextMonth = () => {
     if (!member) return openLogin()
-    if (!isPaid) return setShowPaywall(true)
+    if (!isPaid) return
     setCursorMonth((d) => addMonths(d, 1))
   }
 
@@ -311,9 +362,16 @@ export default function CalendarView() {
     setSelectedISO(iso)
   }
 
-  /* ===== Render ===== */
+  if (authLoading) {
+    return <div className="px-4 py-6 text-white">正在載入日曆...</div>
+  }
+
+  if (!member) {
+    return <div className="px-4 py-6 text-white">請先登入後查看日曆。</div>
+  }
+
   if (loading && Object.keys(monthData).length === 0) {
-    return <div className="px-4 py-6 text-white">載入中…</div>
+    return <div className="px-4 py-6 text-white">正在載入日曆分數...</div>
   }
 
   if (error) {
@@ -321,18 +379,31 @@ export default function CalendarView() {
   }
 
   return (
-    <div className="px-1 text-white space-y-4">
-      {/* ===== 日曆 ===== */}
-      <Section title="🗓️ 日曆" defaultOpen >
-        { <div className="flex items-center justify-between mb-2">
-          <button onClick={onPrevMonth}>◀</button>
+    <div className="space-y-4 px-1 text-white">
+      <Section title="本月日曆" defaultOpen>
+        <div className="mb-2 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={onPrevMonth}
+            disabled={!isPaid}
+            className="rounded-lg px-3 py-1 text-sm text-white/70 transition hover:bg-white/10 disabled:opacity-35"
+          >
+            上月
+          </button>
           <div className="min-w-[80px] text-center text-sm">
             {year}/{pad2(month + 1)}
           </div>
-          <button onClick={onNextMonth}>▶</button>
-        </div> }
+          <button
+            type="button"
+            onClick={onNextMonth}
+            disabled={!isPaid}
+            className="rounded-lg px-3 py-1 text-sm text-white/70 transition hover:bg-white/10 disabled:opacity-35"
+          >
+            下月
+          </button>
+        </div>
 
-        <div className="grid grid-cols-7 mb-2">
+        <div className="mb-2 grid grid-cols-7">
           {WEEK_LABELS.map((w) => (
             <div key={w} className="text-center text-xs text-white/50">
               {w}
@@ -342,90 +413,91 @@ export default function CalendarView() {
 
         <div className="grid grid-cols-7 gap-1.5">
           {cells.map((c, i) =>
-            c.iso && c.date && monthData[c.iso] ? (
+            c.iso && c.date ? (
               <button
-                key={c.iso ?? `empty-${i}`}
+                key={c.iso}
+                type="button"
                 onClick={() => onSelectDate(c.iso)}
-                className="aspect-square min-w-[44px] rounded-xl bg-white/5 p-1.5 text-left flex flex-col"
+                className={`flex aspect-square min-w-[44px] flex-col rounded-xl p-1.5 text-left transition ${
+                  selectedISO === c.iso
+                    ? "bg-cyan-300/15 ring-1 ring-cyan-300/40"
+                    : "bg-white/5 hover:bg-white/10"
+                }`}
               >
                 <div className="flex items-center justify-between">
                   <div className={isSameDay(c.date, today) ? "font-semibold" : ""}>
                     {c.date.getDate()}
                   </div>
-                  <div
-                    className={`h-2 w-2 rounded-full ${dotTone(
-                      monthData[c.iso].scores.overall
-                    )}`}
-                  />
+                  {monthData[c.iso] && (
+                    <div
+                      className={`h-2 w-2 rounded-full ${dotTone(
+                        monthData[c.iso].scores.overall
+                      )}`}
+                    />
+                  )}
                 </div>
-                <div className="text-[10px] leading-tight text-white/40">
-                  {monthData[c.iso].scores.overall}
+                <div className="mt-auto text-[10px] leading-tight text-white/45">
+                  {monthData[c.iso]?.scores.overall ?? "-"}
                 </div>
               </button>
             ) : (
-              <div key={i} />
+              <div key={`empty-${i}`} />
             )
           )}
         </div>
       </Section>
 
-      {/* ===== 分數曲線 ===== */}
       {isPaid && (
-      <Section
-        title="📈 分數曲線"
-        subtitle={
-          curveData.max
-            ? `本月最高：${curveData.max.iso}（${curveData.max.score.toFixed(1)}）`
-            : undefined
-        }
-        defaultOpen
-      >
-        <div className="flex gap-2 flex-wrap">
-          {(
-            [
-              ["整體", "overall"],
-              ["財運", "wealth"],
-              ["工作", "work"],
-              ["投資", "investment"],
-              ["人際", "social"],
-            ] as const
-          ).map(([label, key]) => (
-            <button
-              key={key}
-              onClick={() => setCurveKey(key)}
-              className={
-                "px-3 py-1.5 rounded-full text-xs border " +
-                (curveKey === key
-                  ? "bg-white/15 border-white/20 text-white"
-                  : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10")
-              }
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <Section
+          title="分數曲線"
+          subtitle={
+            curveData.max
+              ? `本月高點 ${curveData.max.iso}｜${curveData.max.score.toFixed(1)}`
+              : undefined
+          }
+          defaultOpen
+        >
+          <div className="flex flex-wrap gap-2">
+            {(
+              [
+                ["總運", "overall"],
+                ["財運", "wealth"],
+                ["事業", "work"],
+                ["投資", "investment"],
+                ["人際", "social"],
+              ] as const
+            ).map(([label, key]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setCurveKey(key)}
+                className={
+                  "rounded-full border px-3 py-1.5 text-xs " +
+                  (curveKey === key
+                    ? "border-white/20 bg-white/15 text-white"
+                    : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10")
+                }
+              >
+                {label}
+              </button>
+            ))}
+          </div>
 
-        <FortuneCurveChart
-          data={curveData.rows}
-          maxPoint={curveData.max}
-          onPickISO={(iso) => {
-            setSelectedISO(iso)   // 點曲線同步日曆單日詳細
-          }}
-        />
-        <div className="text-xs text-white/50">
-          提示：點曲線上的點可直接切換到該日詳細。
-        </div>
-      </Section>
+          <FortuneCurveChart
+            data={curveData.rows}
+            maxPoint={curveData.max}
+            onPickISO={setSelectedISO}
+          />
+        </Section>
       )}
 
-      {/* ===== 單日詳細 ===== */}
-      {member && selected && (
-        <Section title={`📅 ${selected.date}`} defaultOpen>
+      {selected && (
+        <Section title={`單日分數 ${selected.date}`} defaultOpen>
           {(
             [
-              ["整體", "overall"],
+              ["總運", "overall"],
               ["財運", "wealth"],
-              ["工作", "work"],
+              ["事業", "work"],
               ["投資", "investment"],
               ["人際", "social"],
             ] as const
@@ -438,24 +510,23 @@ export default function CalendarView() {
             </div>
           ))}
 
-          {/* 👇 十神放在同一個 Section 裡 */}
           {selected.meta?.shishen?.main && (
-            <div className="pt-3 mt-3 border-t border-white/10 space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-white/60 tracking-wide">
+            <div className="mt-3 space-y-3 border-t border-white/10 pt-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm tracking-wide text-white/60">
                   主十神
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-white/10 text-base font-semibold text-white">
+                <span className="rounded-full bg-white/10 px-2 py-0.5 text-base font-semibold text-white">
                   {selected.meta.shishen.main.main}
                 </span>
               </div>
 
               {selected.meta.shishen.main.secondary && (
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-white/60 tracking-wide">
-                    副十神
+                <div className="flex items-center justify-between">
+                  <span className="text-sm tracking-wide text-white/60">
+                    次十神
                   </span>
-                  <span className="px-2 py-0.5 rounded-full bg-white/5 text-sm font-medium text-white/80">
+                  <span className="rounded-full bg-white/5 px-2 py-0.5 text-sm font-medium text-white/80">
                     {selected.meta.shishen.main.secondary}
                   </span>
                 </div>
@@ -463,34 +534,6 @@ export default function CalendarView() {
             </div>
           )}
         </Section>
-      )}
-      {/* ===== 付費提示 ===== */}
-      {showPaywall && (
-        <div className="rounded-xl bg-yellow-400/10 border border-yellow-400/20 px-4 py-3">
-          <div className="flex items-start justify-between gap-3">
-            <div className="text-sm text-yellow-100/90">
-              🔒 解鎖完整年運勢、詳細解析與幸運提示
-            </div>
-
-            <button
-              onClick={() => setShowPaywall(false)}
-              className="text-yellow-200/60 hover:text-yellow-200 text-sm"
-              aria-label="關閉"
-            >
-              ✕
-            </button>
-          </div>
-
-          <a
-            href="https://www.highlight.url.tw/shop/index.html#"
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => setShowPaywall(false)}
-            className="mt-3 block w-full rounded-lg bg-yellow-400/20 py-2 text-center text-sm font-semibold text-yellow-200 hover:bg-yellow-400/30"
-          >
-            立即升級 →
-          </a>
-        </div>
       )}
     </div>
   )

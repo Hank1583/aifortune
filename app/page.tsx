@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 import CosmicSphere from "@/components/CosmicSphere/CosmicSphere"
 import type { TodayFortune } from "@/components/CosmicSphere/CosmicSphere"
@@ -15,6 +15,7 @@ import MonthView from "@/components/pages/MonthView"
 import ProfileView from "@/components/pages/ProfileView"
 
 import { useFortuneData } from "@/components/data/HomePage"
+import { getProfile, hasProfileData } from "@/components/data/profile"
 import { useAuth } from "@/contexts/AuthContext"
 
 type TabKey = "wuxing" | "fortune" | "calendar" | "month" | "profile"
@@ -22,8 +23,50 @@ type WuxingKey = "木" | "火" | "土" | "金" | "水"
 
 export default function HomePage() {
   const [tab, setTab] = useState<TabKey>("wuxing")
+  const [hasProfile, setHasProfile] = useState<boolean | null>(null)
   const { data, isLoading } = useFortuneData()
-  useAuth()
+  const {
+    effectiveMemberId,
+    isLogin,
+    loading: authLoading,
+    member,
+  } = useAuth()
+
+  useEffect(() => {
+    if (authLoading) return
+
+    if (!isLogin) {
+      queueMicrotask(() => setHasProfile(false))
+      return
+    }
+
+    if (member?.user_fortune_id) {
+      queueMicrotask(() => setHasProfile(true))
+      return
+    }
+
+    if (!effectiveMemberId) {
+      queueMicrotask(() => setHasProfile(false))
+      return
+    }
+
+    let cancelled = false
+
+    queueMicrotask(() => setHasProfile(null))
+    getProfile(effectiveMemberId).then((profile) => {
+      if (!cancelled) setHasProfile(hasProfileData(profile))
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [authLoading, effectiveMemberId, isLogin, member?.user_fortune_id])
+
+  useEffect(() => {
+    if (isLogin && hasProfile !== true && tab !== "profile") {
+      queueMicrotask(() => setTab("profile"))
+    }
+  }, [hasProfile, isLogin, tab])
 
   if (isLoading) {
     return (
@@ -41,8 +84,6 @@ export default function HomePage() {
     )
   }
 
-  const activeTab = tab
-
   const todayFortune: TodayFortune = {
     date: data.today.date,
     ganzhi: data.today.ganzhi,
@@ -52,16 +93,15 @@ export default function HomePage() {
     ),
   }
 
+  const activeTab = isLogin && hasProfile !== true ? "profile" : tab
+
   return (
     <main className="home-root w-full">
       <div className="relative w-full overflow-hidden">
         <CosmicSphere todayFortune={todayFortune} />
       </div>
 
-      <TopNav
-        active={activeTab}
-        onChange={setTab}
-      />
+      <TopNav active={activeTab} onChange={setTab} hasProfile={hasProfile} />
 
       <ContentPanel className="w-full">
         {activeTab === "wuxing" && <DailyWuxing />}

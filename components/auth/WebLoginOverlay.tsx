@@ -12,6 +12,7 @@ export default function WebLoginOverlay() {
     setEntryMode,
     loginWithWeb,
     loginError,
+    lineUid,
   } = useAuth()
 
   const [email, setEmail] = useState("")
@@ -38,6 +39,9 @@ export default function WebLoginOverlay() {
   }
 
   const errorMessage = localError ?? loginError
+  const registerHref = lineUid
+    ? `https://www.highlight.url.tw/ai_fortune/register.php?uid=${lineUid}`
+    : "https://www.highlight.url.tw/ai_fortune/register.php"
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm">
@@ -93,6 +97,15 @@ export default function WebLoginOverlay() {
           >
             {submitting ? "登入中..." : "登入"}
           </button>
+
+          <a
+            href={registerHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block w-full rounded-2xl border border-white/10 px-4 py-3 text-center text-sm text-white/80 transition hover:bg-white/5"
+          >
+            註冊新帳號
+          </a>
         </form>
 
         <div className="mt-5 border-t border-white/10 pt-4">

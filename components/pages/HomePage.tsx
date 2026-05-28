@@ -123,6 +123,10 @@ export default function FortuneHome() {
           )}
         </>
       )}
+
+      <p className="px-1 text-xs leading-relaxed text-white/35">
+        內容為趨勢參考，重要決策請自行審慎判斷。
+      </p>
     </div>
   )
 }

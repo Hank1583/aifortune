@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import UpgradePrompt from "@/components/common/UpgradePrompt"
 import { useAuth } from "@/contexts/AuthContext"
 import {
   getProfile,
@@ -517,6 +518,13 @@ export default function ProfilePage() {
             </div>
           )}
         </SectionCard>
+      )}
+
+      {!isPaid && hasData && (
+        <UpgradePrompt
+          title="升級 VIP 查看十神分析"
+          description="免費會員可查看命盤總覽；VIP 可解鎖十神比例與 AI 深度分析。"
+        />
       )}
     </div>
   )

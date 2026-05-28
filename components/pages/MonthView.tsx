@@ -21,11 +21,7 @@ export const monthCache: Record<
 > = {}
 export const yearCache: Record<string, YearFortune> = {}
 
-const WEEK_LABELS = ["日", "一", "二", "三", "四", "五", "六"]
-
 const pad2 = (n: number) => String(n).padStart(2, "0")
-const toISO = (d: Date) =>
-  `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
 
 const startOfMonth = (y: number, m: number) => new Date(y, m, 1)
 const addMonths = (d: Date, n: number) =>
@@ -113,7 +109,6 @@ export default function MonthView() {
   const [yearFortune, setYearFortune] = useState<YearFortune | null>(null)
   const [monthFortune, setMonthFortune] = useState<MonthFortune | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [showPaywall, setShowPaywall] = useState(false)
 
   const uid = effectiveMemberId ?? "guest"
   const today = useMemo(() => {
@@ -125,8 +120,6 @@ export default function MonthView() {
   const [cursorMonth, setCursorMonth] = useState(
     startOfMonth(today.getFullYear(), today.getMonth())
   )
-  const [selectedISO, setSelectedISO] = useState(toISO(today))
-
   const year = cursorMonth.getFullYear()
   const month = cursorMonth.getMonth()
   const ym = `${year}-${pad2(month + 1)}`
@@ -165,31 +158,13 @@ export default function MonthView() {
       return
     }
 
-    if (!isPaid) {
-      setShowPaywall(true)
-      return
-    }
+    if (!isPaid) return
 
     fn()
   }
 
   const onPrevMonth = () => guardedChangeMonth(() => setCursorMonth((d) => addMonths(d, -1)))
   const onNextMonth = () => guardedChangeMonth(() => setCursorMonth((d) => addMonths(d, 1)))
-
-  const cells = useMemo(() => {
-    const first = startOfMonth(year, month)
-    const firstWeekday = first.getDay()
-    const daysInMonth = new Date(year, month + 1, 0).getDate()
-
-    const arr: Array<{ iso?: string; date?: Date }> = []
-    for (let i = 0; i < firstWeekday; i++) arr.push({})
-    for (let d = 1; d <= daysInMonth; d++) {
-      const date = new Date(year, month, d)
-      arr.push({ iso: toISO(date), date })
-    }
-    while (arr.length % 7 !== 0) arr.push({})
-    return arr
-  }, [year, month])
 
   const monthShareText = displayMonth
     ? [
@@ -231,37 +206,6 @@ export default function MonthView() {
           {year}/{pad2(month + 1)}
         </div>
         <button type="button" onClick={onNextMonth}>下月</button>
-      </div>
-
-      <div className="rounded-2xl bg-white/5 px-3 py-3">
-        <div className="mb-2 grid grid-cols-7 gap-2 text-center text-xs text-white/45">
-          {WEEK_LABELS.map((label) => (
-            <div key={label}>{label}</div>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-7 gap-2">
-          {cells.map((cell, index) => {
-            const isSelected = cell.iso === selectedISO
-            return (
-              <button
-                key={cell.iso ?? `empty-${index}`}
-                type="button"
-                disabled={!cell.iso}
-                onClick={() => cell.iso && setSelectedISO(cell.iso)}
-                className={`min-h-11 rounded-lg border px-2 py-2 text-center text-sm transition ${
-                  cell.iso
-                    ? isSelected
-                      ? "border-cyan-300/50 bg-cyan-300/15 text-white"
-                      : "border-white/8 bg-white/5 text-white/75 hover:bg-white/10"
-                    : "border-transparent bg-transparent"
-                }`}
-              >
-                {cell.date?.getDate() ?? ""}
-              </button>
-            )
-          })}
-        </div>
       </div>
 
       <Section
@@ -403,7 +347,7 @@ export default function MonthView() {
             <span className="font-semibold">{displayYear.lucky.direction}</span>
           </div>
 
-          {isPaid && (
+          {isPaid ? (
             <Section title="AI 年運解析">
               <div className="space-y-2 text-sm leading-relaxed">
                 <div className="rounded-lg bg-white/5 px-3 py-2">
@@ -433,35 +377,12 @@ export default function MonthView() {
               )}
               </div>
             </Section>
+          ) : (
+            <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-3 text-sm leading-relaxed text-white/60">
+              VIP 會員可查看完整月運勢、年運勢、AI 詳細解析與幸運提示。
+            </div>
           )}
         </Section>
-      )}
-
-      {showPaywall && (
-        <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/10 px-4 py-3">
-          <div className="flex items-start justify-between gap-3">
-            <div className="text-sm text-yellow-100/90">
-              升級 VIP 可切換月份，查看完整月運勢與 AI 深度解析。
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowPaywall(false)}
-              className="text-sm text-yellow-200/60 hover:text-yellow-200"
-            >
-              關閉
-            </button>
-          </div>
-
-          <a
-            href="https://www.highlight.url.tw/shop/index.html#"
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => setShowPaywall(false)}
-            className="mt-3 block w-full rounded-lg bg-yellow-400/20 py-2 text-center text-sm font-semibold text-yellow-200 hover:bg-yellow-400/30"
-          >
-            前往升級 VIP
-          </a>
-        </div>
       )}
     </div>
   )
