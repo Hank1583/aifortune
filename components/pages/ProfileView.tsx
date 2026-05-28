@@ -266,7 +266,7 @@ export default function ProfilePage() {
 
       {isViewingAsAdmin && viewUid && (
         <div className="rounded-2xl border border-cyan-300/20 bg-cyan-300/10 px-4 py-3 text-sm text-cyan-100">
-          目前正在查看：會員 {viewUid}。此模式目前先提供檢視資料，不直接開放編輯。
+          目前正在查看會員 {viewUid}，此模式僅供檢視，無法編輯資料。
         </div>
       )}
 
@@ -278,7 +278,7 @@ export default function ProfilePage() {
 
       {!hasData && (
         <div className="rounded-2xl border border-amber-300/20 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
-          首次登入請先完成個人資料，系統才會建立你的專屬命盤內容。
+          請先建立個人命盤，系統才會產生專屬運勢內容。
         </div>
       )}
 
@@ -292,7 +292,7 @@ export default function ProfilePage() {
               setIsSettingOpen((value) => !value)
             }}
           >
-            <h2 className="text-lg font-semibold">個人設定</h2>
+            <h2 className="text-lg font-semibold">命盤資料設定</h2>
             <span className="text-xs text-white/50">
               {isSettingOpen ? "收起" : "展開"}
             </span>
@@ -344,11 +344,11 @@ export default function ProfilePage() {
             <div className="space-y-6">
               <div>
                 <h3 className="mb-3 text-base font-semibold text-yellow-500">
-                  接收頻率
+                  LINE 通知頻率
                 </h3>
                 <div className="flex flex-col gap-2 sm:flex-row sm:gap-4">
                   <Toggle
-                    label="每日運勢"
+                    label="每日通知"
                     checked={schedule.daily}
                     onChange={(value: boolean) =>
                       setSchedule({ ...schedule, daily: value })
@@ -356,7 +356,7 @@ export default function ProfilePage() {
                     disabled={!isEditing}
                   />
                   <Toggle
-                    label="每月運勢"
+                    label="每月通知"
                     checked={schedule.monthly}
                     onChange={(value: boolean) =>
                       setSchedule({ ...schedule, monthly: value })
@@ -368,7 +368,7 @@ export default function ProfilePage() {
 
               <div>
                 <h3 className="mb-3 text-base font-semibold text-yellow-500">
-                  通知項目
+                  LINE 通知項目
                 </h3>
                 <div className="space-y-2">
                   <Toggle
@@ -388,7 +388,7 @@ export default function ProfilePage() {
                     disabled={!isEditing}
                   />
                   <Toggle
-                    label="事業"
+                    label="工作運"
                     checked={notify.career}
                     onChange={(value: boolean) =>
                       setNotify({ ...notify, career: value })

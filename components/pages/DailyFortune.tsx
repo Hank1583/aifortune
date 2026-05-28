@@ -14,6 +14,10 @@ function formatDateYMD(date: Date): string {
   return `${y}-${m}-${d}`
 }
 
+function hasDailyScores(data: FortuneResponse) {
+  return Object.values(data.score ?? {}).some((value) => Number(value) > 0)
+}
+
 export default function DailyFortune() {
   const { effectiveMemberId, loading: authLoading, isPaid } = useAuth()
   const [data, setData] = useState<FortuneResponse | null>(null)
@@ -51,6 +55,13 @@ export default function DailyFortune() {
   if (authLoading) return <div>正在載入今日運勢...</div>
   if (error && !displayData) return <div className="text-red-300">{error}</div>
   if (!displayData) return <div>正在載入今日運勢...</div>
+  if (!hasDailyScores(displayData)) {
+    return (
+      <div className="px-1 pb-8 text-white">
+        今日運勢尚未產生，請稍後再試。
+      </div>
+    )
+  }
 
   const shareText = [
     `未來演算所｜今日運勢 ${displayData.date}`,
@@ -62,7 +73,7 @@ export default function DailyFortune() {
     .join("\n")
 
   return (
-    <div className="space-y-4 px-1 text-white">
+    <div className="space-y-4 px-1 pb-8 text-white">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-xl font-semibold">今日運勢</h2>

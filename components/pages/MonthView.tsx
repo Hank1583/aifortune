@@ -43,6 +43,13 @@ function dotTone(v: number) {
   return "bg-red-400"
 }
 
+function hasScoreData(
+  fortune: { scores?: Record<string, number | string | null | undefined> } | null
+) {
+  if (!fortune?.scores) return false
+  return Object.values(fortune.scores).some((value) => Number(value) > 0)
+}
+
 function renderLuckyColor(color: string) {
   return <span className={colorByText(color)}>{color}</span>
 }
@@ -129,6 +136,8 @@ export default function MonthView() {
   const cachedYear = yearCache[yearKey] ?? null
   const displayMonth = monthFortune ?? cachedMonth
   const displayYear = yearFortune ?? cachedYear
+  const hasMonthData = hasScoreData(displayMonth)
+  const hasYearData = hasScoreData(displayYear)
 
   useEffect(() => {
     if (authLoading) return
@@ -208,17 +217,18 @@ export default function MonthView() {
         <button type="button" onClick={onNextMonth}>下月</button>
       </div>
 
-      <Section
-        title={`${displayMonth.month} 月運勢`}
-        action={
-          <FortuneShareButton
-            title={`AI 月運勢｜${displayMonth.month}`}
-            text={monthShareText}
-            urlHash="#month"
-          />
-        }
-        defaultOpen
-      >
+      {hasMonthData ? (
+        <Section
+          title={`${displayMonth.month} 月運勢`}
+          action={
+            <FortuneShareButton
+              title={`AI 月運勢｜${displayMonth.month}`}
+              text={monthShareText}
+              urlHash="#month"
+            />
+          }
+          defaultOpen
+        >
         <div className="grid grid-cols-5 gap-2 text-center">
           {([
             ["整體", displayMonth.scores.overall, false],
@@ -304,9 +314,14 @@ export default function MonthView() {
             </div>
           </Section>
         )}
-      </Section>
+        </Section>
+      ) : (
+        <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-sm text-white/70">
+          本月運勢資料尚未產生，請稍後再試。
+        </div>
+      )}
 
-      {displayYear && (
+      {displayYear && hasYearData ? (
         <Section
           title={`${displayYear.year} 年運勢`}
           action={
@@ -383,6 +398,10 @@ export default function MonthView() {
             </div>
           )}
         </Section>
+      ) : (
+        <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-sm text-white/70">
+          年度運勢資料尚未產生，請稍後再試。
+        </div>
       )}
     </div>
   )
