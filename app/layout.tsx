@@ -1,8 +1,11 @@
 import { Geist, Geist_Mono } from "next/font/google"
 import type { Metadata, Viewport } from "next"
+import Script from "next/script"
 import WebLoginOverlay from "@/components/auth/WebLoginOverlay"
 import { AuthProvider } from "@/contexts/AuthContext"
 import "./globals.css"
+
+const GA_MEASUREMENT_ID = "G-NGY7LS38CS"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,7 +18,7 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://www.highlight.url.tw"),
+  metadataBase: new URL("https://aifortune.highlightsignal.com"),
   applicationName: "未來演算所",
   title: {
     default: "未來演算所",
@@ -33,12 +36,12 @@ export const metadata: Metadata = {
     "十神分析",
   ],
   alternates: {
-    canonical: "/ai_fortune/",
+    canonical: "/",
   },
   openGraph: {
     type: "website",
     locale: "zh_TW",
-    url: "/ai_fortune/",
+    url: "/",
     siteName: "未來演算所",
     title: "未來演算所",
     description:
@@ -75,6 +78,18 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black`}
       >
+        <Script
+          src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '${GA_MEASUREMENT_ID}');
+          `}
+        </Script>
         <AuthProvider>
           {children}
           <WebLoginOverlay />
