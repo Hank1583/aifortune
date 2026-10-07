@@ -93,6 +93,49 @@ export function adaptDailyList(api: ApiResponse): Record<string, DailyFortune> {
 
 const BASE = "https://www.highlight.url.tw/ai_fortune/php"
 
+export type DayGanzhi = {
+  year: string
+  month: string
+  day: string
+}
+
+type GanzhiApiResponse = {
+  data?: Record<string, { ganzhi?: Partial<DayGanzhi> }>
+}
+
+// month: yyyy-mm，回傳 { "yyyy-mm-dd": { year, month, day } }
+export async function fetchGanzhiForMonth(
+  month: string
+): Promise<Record<string, DayGanzhi>> {
+  const [y, m] = month.split("-").map(Number)
+  const lastDay = new Date(y, m, 0).getDate()
+  const start = `${month}-01`
+  const end = `${month}-${String(lastDay).padStart(2, "0")}`
+
+  const res = await fetch(
+    `${BASE}/sync_date.php?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`
+  )
+
+  if (!res.ok) {
+    throw new Error("Failed to fetch ganzhi")
+  }
+
+  const json = (await res.json()) as GanzhiApiResponse
+  const out: Record<string, DayGanzhi> = {}
+
+  for (const [date, day] of Object.entries(json.data ?? {})) {
+    const gz = day.ganzhi
+    if (!gz?.day) continue
+    out[date] = {
+      year: gz.year ?? "",
+      month: gz.month ?? "",
+      day: gz.day,
+    }
+  }
+
+  return out
+}
+
 export async function fetchDailyForMonth(
   uid: string,
   month: string

@@ -5,13 +5,16 @@ import { useEffect, useMemo, useState } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import {
   fetchDailyForMonth,
+  fetchGanzhiForMonth,
   type DailyFortune,
+  type DayGanzhi,
 } from "@/components/data/CalendarView"
 
 const WEEK_LABELS = ["日", "一", "二", "三", "四", "五", "六"]
 const dailyCache: Record<string, Record<string, DailyFortune>> = {}
 const dailyPendingCache: Record<string, Promise<Record<string, DailyFortune>>> =
   {}
+const ganzhiCache: Record<string, Record<string, DayGanzhi>> = {}
 const DAILY_MONTH_API_BASE =
   "https://www.highlight.url.tw/ai_fortune/php/get_daily_for_month.php"
 
@@ -212,6 +215,7 @@ export default function CalendarView() {
   const [monthData, setMonthData] = useState<Record<string, DailyFortune>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [ganzhiMap, setGanzhiMap] = useState<Record<string, DayGanzhi>>({})
   const [curveKey, setCurveKey] = useState<
     "overall" | "wealth" | "work" | "investment" | "social"
   >("wealth")
@@ -312,6 +316,29 @@ export default function CalendarView() {
       .finally(() => setLoading(false))
   }, [authLoading, member, queryCandidates, ym])
 
+  // 干支與會員無關，依月份獨立讀取；失敗時只是不顯示，不影響分數
+  useEffect(() => {
+    const cached = ganzhiCache[ym]
+    if (cached) {
+      queueMicrotask(() => setGanzhiMap(cached))
+      return
+    }
+
+    let cancelled = false
+    fetchGanzhiForMonth(ym)
+      .then((data) => {
+        ganzhiCache[ym] = data
+        if (!cancelled) setGanzhiMap(data)
+      })
+      .catch(() => {
+        if (!cancelled) setGanzhiMap({})
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [ym])
+
   const cells = useMemo(() => {
     const first = startOfMonth(year, month)
     const firstWeekday = first.getDay()
@@ -328,6 +355,7 @@ export default function CalendarView() {
   }, [year, month])
 
   const selected = monthData[selectedISO]
+  const selectedGanzhi = ganzhiMap[selectedISO]
 
   const curveData = useMemo(() => {
     const rows = Object.values(monthData)
@@ -436,8 +464,11 @@ export default function CalendarView() {
                     />
                   )}
                 </div>
-                <div className="mt-auto text-[10px] leading-tight text-white/45">
-                  {monthData[c.iso]?.scores.overall ?? "-"}
+                <div className="mt-auto flex items-end justify-between gap-0.5 text-[10px] leading-tight">
+                  <span className="text-white/60">{ganzhiMap[c.iso]?.day ?? ""}</span>
+                  <span className="text-white/45">
+                    {monthData[c.iso]?.scores.overall ?? "-"}
+                  </span>
                 </div>
               </button>
             ) : (
@@ -491,26 +522,46 @@ export default function CalendarView() {
         </Section>
       )}
 
-      {selected && (
-        <Section title={`單日分數 ${selected.date}`} defaultOpen>
-          {(
-            [
-              ["總運", "overall"],
-              ["財運", "wealth"],
-              ["事業", "work"],
-              ["投資", "investment"],
-              ["人際", "social"],
-            ] as const
-          ).map(([label, key]) => (
-            <div key={key} className="flex justify-between text-sm">
-              <div className="text-white/70">{label}</div>
-              <div className={scoreTone(selected.scores[key])}>
-                {selected.scores[key]}
-              </div>
+      {(selected || selectedGanzhi) && (
+        <Section title={`單日分數 ${selectedISO}`} defaultOpen>
+          {selectedGanzhi && (
+            <div className="grid grid-cols-3 gap-2 border-b border-white/10 pb-3 text-center">
+              {(
+                [
+                  ["年柱", selectedGanzhi.year],
+                  ["月柱", selectedGanzhi.month],
+                  ["日柱", selectedGanzhi.day],
+                ] as const
+              ).map(([label, value]) => (
+                <div key={label} className="rounded-xl bg-white/5 py-2">
+                  <div className="text-xs text-white/50">{label}</div>
+                  <div className="mt-0.5 text-base font-semibold tracking-widest text-white">
+                    {value || "-"}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
 
-          {selected.meta?.shishen?.main && (
+          {selected &&
+            (
+              [
+                ["總運", "overall"],
+                ["財運", "wealth"],
+                ["事業", "work"],
+                ["投資", "investment"],
+                ["人際", "social"],
+              ] as const
+            ).map(([label, key]) => (
+              <div key={key} className="flex justify-between text-sm">
+                <div className="text-white/70">{label}</div>
+                <div className={scoreTone(selected.scores[key])}>
+                  {selected.scores[key]}
+                </div>
+              </div>
+            ))}
+
+          {selected?.meta?.shishen?.main && (
             <div className="mt-3 space-y-3 border-t border-white/10 pt-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm tracking-wide text-white/60">
